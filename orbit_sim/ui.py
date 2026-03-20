@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 import pygame
@@ -18,134 +17,222 @@ class ControlButton:
 
 class InfoPanel:
     def __init__(self) -> None:
-        self.eyebrow_font = pygame.font.SysFont("segoeui", 12, bold=True)
-        self.title_font = pygame.font.SysFont("segoeui", 28, bold=True)
-        self.label_font = pygame.font.SysFont("segoeui", 13)
-        self.value_font = pygame.font.SysFont("segoeui", 18)
+        self.scale = 0.0
+        self.eyebrow_font: pygame.font.Font | None = None
+        self.title_font: pygame.font.Font | None = None
+        self.label_font: pygame.font.Font | None = None
+        self.value_font: pygame.font.Font | None = None
+        self.fact_font: pygame.font.Font | None = None
 
-    def draw(self, surface: pygame.Surface, body: CelestialBody, visibility: float) -> None:
-        panel_width = 284
-        panel_height = 236
-        slide = int((1.0 - visibility) * 24)
+    def draw(self, surface: pygame.Surface, body: CelestialBody, visibility: float, ui_scale: float) -> None:
+        self._ensure_fonts(ui_scale)
+        panel_width = int(380 * ui_scale)
+        panel_height = int(296 * ui_scale)
+        slide = int((1.0 - visibility) * 20 * ui_scale)
         alpha = max(0, min(255, int(visibility * 255)))
-        x = surface.get_width() - panel_width - 34 + slide
-        y = 32
+        x = surface.get_width() - panel_width - int(40 * ui_scale) + slide
+        y = int(34 * ui_scale)
+
+        shadow = pygame.Surface((panel_width + 24, panel_height + 24), pygame.SRCALPHA)
+        pygame.draw.rect(shadow, (0, 0, 0, int(alpha * 0.28)), shadow.get_rect(), border_radius=int(26 * ui_scale))
+        surface.blit(shadow, (x - int(10 * ui_scale), y + int(10 * ui_scale)))
 
         panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-        shadow = pygame.Surface((panel_width + 20, panel_height + 20), pygame.SRCALPHA)
-        pygame.draw.rect(shadow, (0, 0, 0, int(alpha * 0.32)), shadow.get_rect(), border_radius=30)
-        surface.blit(shadow, (x - 10 + slide, y + 8))
+        pygame.draw.rect(panel, (9, 12, 19, int(alpha * 0.93)), panel.get_rect(), border_radius=int(22 * ui_scale))
+        pygame.draw.rect(panel, (48, 56, 70, int(alpha * 0.9)), panel.get_rect(), width=1, border_radius=int(22 * ui_scale))
 
-        pygame.draw.rect(panel, (10, 15, 28, int(alpha * 0.94)), panel.get_rect(), border_radius=24)
-        pygame.draw.rect(panel, (56, 74, 108, int(alpha * 0.78)), panel.get_rect(), width=1, border_radius=24)
-        pygame.draw.circle(panel, (*body.color, int(alpha * 0.95)), (34, 36), 8)
+        pygame.draw.circle(panel, (*body.color, int(alpha * 0.92)), (int(34 * ui_scale), int(34 * ui_scale)), max(5, int(8 * ui_scale)))
+        eyebrow = self.eyebrow_font.render("SELECTED PLANET", True, (150, 160, 178))
+        title = self.title_font.render(body.name, True, (234, 238, 244))
+        panel.blit(eyebrow, (int(56 * ui_scale), int(22 * ui_scale)))
+        panel.blit(title, (int(24 * ui_scale), int(48 * ui_scale)))
 
-        eyebrow = self.eyebrow_font.render("SELECTED BODY", True, (154, 167, 196))
-        title = self.title_font.render(body.name, True, (236, 240, 248))
+        rows = [
+            ("Radius", f"{body.radius_km:,.0f} km"),
+            ("Distance", f"{body.distance_au:.2f} AU"),
+            ("Orbital period", self._format_period(body.orbital_period_days)),
+        ]
+        top = int(120 * ui_scale)
+        row_gap = int(42 * ui_scale)
+        for label, value in rows:
+            self._draw_stat_row(panel, label, value, top, ui_scale)
+            top += row_gap
 
-        panel.blit(eyebrow, (54, 26))
-        panel.blit(title, (26, 56))
-        self._draw_stat_row(panel, "Orbit radius", f"{body.orbit_radius:.0f} px", 116, alpha)
-        self._draw_stat_row(panel, "Speed", f"{math.degrees(body.angular_speed):.1f} deg/s", 154, alpha)
-        self._draw_stat_row(panel, "Size", f"{body.radius:.0f} px", 192, alpha)
+        fact_title = self.label_font.render("Fact", True, (132, 142, 160))
+        panel.blit(fact_title, (int(24 * ui_scale), int(232 * ui_scale)))
+        fact_lines = self._wrap_text(body.fact, self.fact_font, panel_width - int(48 * ui_scale))
+        text_y = int(252 * ui_scale)
+        for line in fact_lines[:2]:
+            line_surface = self.fact_font.render(line, True, (208, 214, 224))
+            panel.blit(line_surface, (int(24 * ui_scale), text_y))
+            text_y += int(19 * ui_scale)
 
         surface.blit(panel, (x, y))
 
-    def _draw_stat_row(self, panel: pygame.Surface, label: str, value: str, top: int, alpha: int) -> None:
-        pygame.draw.line(panel, (42, 54, 82, int(alpha * 0.8)), (26, top - 10), (258, top - 10), 1)
-        label_surface = self.label_font.render(label, True, (119, 132, 160))
-        value_surface = self.value_font.render(value, True, (228, 233, 244))
-        panel.blit(label_surface, (26, top))
-        panel.blit(value_surface, (168, top - 2))
+    def _draw_stat_row(self, panel: pygame.Surface, label: str, value: str, top: int, ui_scale: float) -> None:
+        pygame.draw.line(
+            panel,
+            (36, 43, 54, 220),
+            (int(24 * ui_scale), top - int(10 * ui_scale)),
+            (panel.get_width() - int(24 * ui_scale), top - int(10 * ui_scale)),
+            1,
+        )
+        label_surface = self.label_font.render(label, True, (132, 142, 160))
+        value_surface = self.value_font.render(value, True, (226, 231, 238))
+        panel.blit(label_surface, (int(24 * ui_scale), top))
+        panel.blit(value_surface, (panel.get_width() - value_surface.get_width() - int(24 * ui_scale), top - int(2 * ui_scale)))
+
+    def _format_period(self, orbital_period_days: float) -> str:
+        if orbital_period_days >= 730:
+            return f"{orbital_period_days / 365.25:.1f} years"
+        return f"{orbital_period_days:.0f} days"
+
+    def _wrap_text(self, text: str, font: pygame.font.Font, width: int) -> list[str]:
+        words = text.split()
+        lines: list[str] = []
+        current: list[str] = []
+
+        for word in words:
+            candidate = " ".join(current + [word])
+            if current and font.size(candidate)[0] > width:
+                lines.append(" ".join(current))
+                current = [word]
+            else:
+                current.append(word)
+
+        if current:
+            lines.append(" ".join(current))
+
+        return lines
+
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.scale) < 0.01:
+            return
+
+        self.scale = ui_scale
+        self.eyebrow_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)), bold=True)
+        self.title_font = pygame.font.SysFont("segoeui", max(18, int(28 * ui_scale)), bold=True)
+        self.label_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)))
+        self.value_font = pygame.font.SysFont("segoeui", max(14, int(17 * ui_scale)))
+        self.fact_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)))
 
 
 class HudChrome:
     def __init__(self) -> None:
-        self.title_font = pygame.font.SysFont("segoeui", 24, bold=True)
-        self.subtitle_font = pygame.font.SysFont("segoeui", 14)
-        self.chip_font = pygame.font.SysFont("segoeui", 12, bold=True)
+        self.scale = 0.0
+        self.title_font: pygame.font.Font | None = None
+        self.subtitle_font: pygame.font.Font | None = None
+        self.meta_font: pygame.font.Font | None = None
 
-    def draw(self, surface: pygame.Surface, paused: bool, zoom: float) -> None:
-        title = self.title_font.render("GRAVITY STUDIO", True, (230, 235, 244))
-        subtitle = self.subtitle_font.render("Interactive orbital motion study", True, (112, 125, 154))
-        hint = self.subtitle_font.render("Click a planet for details. Use the mouse wheel to zoom.", True, (95, 108, 138))
+    def draw(self, surface: pygame.Surface, paused: bool, zoom: float, scale_mode: str, ui_scale: float) -> None:
+        self._ensure_fonts(ui_scale)
+        margin_x = int(42 * ui_scale)
+        title = self.title_font.render("SOLAR SYSTEM", True, (230, 235, 242))
+        subtitle = self.subtitle_font.render("Astronomy-inspired orbital visualization", True, (124, 136, 156))
+        meta = self.meta_font.render(
+            f"{'PAUSED' if paused else 'LIVE'}   |   ZOOM {int(zoom * 100)}%   |   SCALE {scale_mode.upper()}",
+            True,
+            (106, 118, 140),
+        )
+        hint = self.meta_font.render("Mouse wheel to zoom. Click a planet to inspect.", True, (88, 100, 120))
 
-        surface.blit(title, (44, 34))
-        surface.blit(subtitle, (46, 68))
-        surface.blit(hint, (46, 92))
+        surface.blit(title, (margin_x, int(34 * ui_scale)))
+        surface.blit(subtitle, (margin_x, int(70 * ui_scale)))
+        surface.blit(meta, (margin_x, int(102 * ui_scale)))
+        surface.blit(hint, (margin_x, int(124 * ui_scale)))
 
-        chips = [
-            f"{'PAUSED' if paused else 'LIVE'}",
-            f"ZOOM {int(zoom * 100)}%",
-        ]
-        x = 46
-        for chip in chips:
-            chip_width = self.chip_font.size(chip)[0] + 22
-            chip_rect = pygame.Rect(x, 124, chip_width, 28)
-            chip_surface = pygame.Surface(chip_rect.size, pygame.SRCALPHA)
-            fill = (24, 39, 62, 188) if "ZOOM" in chip else ((37, 59, 74, 196) if paused else (22, 62, 66, 196))
-            border = (84, 112, 154, 208) if "ZOOM" in chip else ((104, 156, 184, 216) if paused else (96, 191, 177, 220))
-            pygame.draw.rect(chip_surface, fill, chip_surface.get_rect(), border_radius=14)
-            pygame.draw.rect(chip_surface, border, chip_surface.get_rect(), width=1, border_radius=14)
-            label_surface = self.chip_font.render(chip, True, (226, 233, 242))
-            label_rect = label_surface.get_rect(center=chip_surface.get_rect().center)
-            chip_surface.blit(label_surface, label_rect)
-            surface.blit(chip_surface, chip_rect.topleft)
-            x += chip_width + 10
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.scale) < 0.01:
+            return
+
+        self.scale = ui_scale
+        self.title_font = pygame.font.SysFont("segoeui", max(20, int(28 * ui_scale)), bold=True)
+        self.subtitle_font = pygame.font.SysFont("segoeui", max(13, int(15 * ui_scale)))
+        self.meta_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
 
 
 class ControlBar:
     def __init__(self) -> None:
-        self.button_font = pygame.font.SysFont("segoeui", 16, bold=True)
+        self.scale = 0.0
+        self.button_font: pygame.font.Font | None = None
 
-    def build_buttons(self, width: int, height: int, paused: bool) -> list[ControlButton]:
+    def build_buttons(
+        self,
+        width: int,
+        height: int,
+        ui_scale: float,
+        paused: bool,
+        show_orbits: bool,
+        show_labels: bool,
+        scale_mode: str,
+    ) -> list[ControlButton]:
+        self._ensure_fonts(ui_scale)
         labels = [
             ("toggle_pause", "Resume" if paused else "Pause", paused),
+            ("toggle_orbits", "Orbits", show_orbits),
+            ("toggle_labels", "Labels", show_labels),
+            ("toggle_scale", f"Scale: {scale_mode.title()}", scale_mode == "expanded"),
             ("reset", "Reset", False),
         ]
+        margin_x = int(38 * ui_scale)
+        y = height - int(82 * ui_scale)
+        gap = int(10 * ui_scale)
+        height_px = int(42 * ui_scale)
         buttons: list[ControlButton] = []
-        x = 34
-        y = height - 82
+        x = margin_x
 
         for action, label, active in labels:
-            button_width = max(104, self.button_font.size(label)[0] + 34)
-            rect = pygame.Rect(x, y, button_width, 46)
+            button_width = max(int(82 * ui_scale), self.button_font.size(label)[0] + int(28 * ui_scale))
+            rect = pygame.Rect(x, y, button_width, height_px)
             buttons.append(ControlButton(action=action, label=label, rect=rect, active=active))
-            x += button_width + 12
+            x += button_width + gap
 
         return buttons
 
-    def draw(self, surface: pygame.Surface, buttons: list[ControlButton], hovered_action: str | None) -> None:
+    def draw(
+        self,
+        surface: pygame.Surface,
+        buttons: list[ControlButton],
+        hovered_action: str | None,
+        ui_scale: float,
+    ) -> None:
+        self._ensure_fonts(ui_scale)
         if not buttons:
             return
 
-        bar_rect = buttons[0].rect.unionall([button.rect for button in buttons[1:]]).inflate(22, 20)
-        shadow = pygame.Surface((bar_rect.width + 20, bar_rect.height + 20), pygame.SRCALPHA)
-        pygame.draw.rect(shadow, (0, 0, 0, 76), shadow.get_rect(), border_radius=28)
-        surface.blit(shadow, (bar_rect.x - 10, bar_rect.y + 8))
+        bar_rect = buttons[0].rect.unionall([button.rect for button in buttons[1:]]).inflate(int(16 * ui_scale), int(16 * ui_scale))
+        shadow = pygame.Surface((bar_rect.width + int(20 * ui_scale), bar_rect.height + int(20 * ui_scale)), pygame.SRCALPHA)
+        pygame.draw.rect(shadow, (0, 0, 0, 64), shadow.get_rect(), border_radius=int(24 * ui_scale))
+        surface.blit(shadow, (bar_rect.x - int(10 * ui_scale), bar_rect.y + int(8 * ui_scale)))
 
-        bar = pygame.Surface(bar_rect.size, pygame.SRCALPHA)
-        pygame.draw.rect(bar, (9, 13, 24, 230), bar.get_rect(), border_radius=24)
-        pygame.draw.rect(bar, (47, 61, 92, 196), bar.get_rect(), width=1, border_radius=24)
-        surface.blit(bar, bar_rect.topleft)
+        tray = pygame.Surface(bar_rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(tray, (8, 11, 18, 214), tray.get_rect(), border_radius=int(20 * ui_scale))
+        pygame.draw.rect(tray, (42, 48, 60, 220), tray.get_rect(), width=1, border_radius=int(20 * ui_scale))
+        surface.blit(tray, bar_rect.topleft)
 
         for button in buttons:
-            state_fill = (15, 20, 36, 255)
-            state_border = (55, 72, 108, 255)
-            text_color = (222, 229, 242)
+            fill = (14, 18, 26, 250)
+            border = (49, 56, 70, 255)
+            text_color = (214, 220, 230)
 
             if button.active:
-                state_fill = (31, 57, 72, 255)
-                state_border = (79, 155, 189, 255)
+                fill = (25, 33, 46, 252)
+                border = (108, 124, 148, 255)
             elif button.action == hovered_action:
-                state_fill = (21, 28, 49, 255)
-                state_border = (88, 110, 160, 255)
+                fill = (19, 25, 36, 252)
+                border = (78, 90, 110, 255)
 
             button_surface = pygame.Surface(button.rect.size, pygame.SRCALPHA)
-            pygame.draw.rect(button_surface, state_fill, button_surface.get_rect(), border_radius=18)
-            pygame.draw.rect(button_surface, state_border, button_surface.get_rect(), width=1, border_radius=18)
-
+            pygame.draw.rect(button_surface, fill, button_surface.get_rect(), border_radius=int(14 * ui_scale))
+            pygame.draw.rect(button_surface, border, button_surface.get_rect(), width=1, border_radius=int(14 * ui_scale))
             label_surface = self.button_font.render(button.label, True, text_color)
             label_rect = label_surface.get_rect(center=button_surface.get_rect().center)
             button_surface.blit(label_surface, label_rect)
             surface.blit(button_surface, button.rect.topleft)
+
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.scale) < 0.01:
+            return
+
+        self.scale = ui_scale
+        self.button_font = pygame.font.SysFont("segoeui", max(12, int(14 * ui_scale)), bold=True)

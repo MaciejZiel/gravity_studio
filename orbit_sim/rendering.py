@@ -11,6 +11,11 @@ from orbit_sim.models import CelestialBody
 
 
 class SceneRenderer:
+    def __init__(self) -> None:
+        self.label_scale = 0.0
+        self.label_font: pygame.font.Font | None = None
+        self.selected_label_font: pygame.font.Font | None = None
+
     def draw(
         self,
         surface: pygame.Surface,
@@ -19,11 +24,17 @@ class SceneRenderer:
         elapsed_time: float,
         hovered_body: CelestialBody | None,
         selected_body: CelestialBody | None,
+        show_orbits: bool,
+        show_labels: bool,
     ) -> None:
+        self._ensure_fonts(camera.layout.ui_scale)
         self.draw_space_haze(surface, camera.zoom)
-        self.draw_orbits(surface, camera, bodies, selected_body)
+        if show_orbits:
+            self.draw_orbits(surface, camera, bodies, selected_body)
         self.draw_star(surface, camera, elapsed_time)
         self.draw_planets(surface, camera, bodies, elapsed_time, hovered_body, selected_body)
+        if show_labels:
+            self.draw_labels(surface, camera, bodies, selected_body)
 
     def draw_space_haze(self, surface: pygame.Surface, zoom: float) -> None:
         size = surface.get_size()
@@ -247,3 +258,41 @@ class SceneRenderer:
 
     def _point(self, vector: Vector2) -> tuple[int, int]:
         return int(vector.x), int(vector.y)
+
+    def draw_labels(
+        self,
+        surface: pygame.Surface,
+        camera: SolarCamera,
+        bodies: list[CelestialBody],
+        selected_body: CelestialBody | None,
+    ) -> None:
+        sun_center = camera.layout.scene_center
+        for body in bodies:
+            planet_position = camera.body_position(body)
+            direction = body.direction()
+            planet_radius = camera.planet_radius(body)
+            anchor = planet_position + direction * (planet_radius + 12 * camera.layout.ui_scale)
+            font = self.selected_label_font if body is selected_body else self.label_font
+            color = (226, 231, 237) if body is selected_body else (142, 150, 163)
+            label_surface = font.render(body.name, True, color)
+
+            if anchor.x >= sun_center.x:
+                label_position = (int(anchor.x + 6 * camera.layout.ui_scale), int(anchor.y - label_surface.get_height() / 2))
+                line_end = (label_position[0] - int(4 * camera.layout.ui_scale), int(anchor.y))
+            else:
+                label_position = (
+                    int(anchor.x - label_surface.get_width() - 6 * camera.layout.ui_scale),
+                    int(anchor.y - label_surface.get_height() / 2),
+                )
+                line_end = (label_position[0] + label_surface.get_width() + int(4 * camera.layout.ui_scale), int(anchor.y))
+
+            pygame.draw.line(surface, (94, 104, 120), self._point(planet_position), line_end, 1)
+            surface.blit(label_surface, label_position)
+
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.label_scale) < 0.01:
+            return
+
+        self.label_scale = ui_scale
+        self.label_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
+        self.selected_label_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)), bold=True)

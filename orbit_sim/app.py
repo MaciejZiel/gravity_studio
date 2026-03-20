@@ -38,7 +38,16 @@ class GravityStudioApp:
         self.panel_body: CelestialBody | None = None
         self.panel_visibility = 0.0
         self.hovered_action: str | None = None
-        self.control_buttons = self.control_bar.build_buttons(*self.viewport, paused=False)
+        self.show_orbits = True
+        self.show_labels = True
+        self.control_buttons = self.control_bar.build_buttons(
+            *self.viewport,
+            self.camera.layout.ui_scale,
+            paused=False,
+            show_orbits=self.show_orbits,
+            show_labels=self.show_labels,
+            scale_mode=self.camera.scale_mode,
+        )
         self.paused = False
         self.running = True
 
@@ -70,7 +79,14 @@ class GravityStudioApp:
         if not self.paused:
             self.simulation.update(dt)
         self.camera.update(dt)
-        self.control_buttons = self.control_bar.build_buttons(*self.viewport, paused=self.paused)
+        self.control_buttons = self.control_bar.build_buttons(
+            *self.viewport,
+            self.camera.layout.ui_scale,
+            paused=self.paused,
+            show_orbits=self.show_orbits,
+            show_labels=self.show_labels,
+            scale_mode=self.camera.scale_mode,
+        )
         self.hovered_action = self.action_at_screen_position(pygame.mouse.get_pos())
         self.hovered_body = self.body_at_screen_position(Vector2(pygame.mouse.get_pos()))
         if self.selected_body is not None:
@@ -91,6 +107,8 @@ class GravityStudioApp:
             self.elapsed_time,
             self.hovered_body,
             self.selected_body,
+            self.show_orbits,
+            self.show_labels,
         )
         self.draw_hud()
         self.draw_info_panel()
@@ -109,13 +127,13 @@ class GravityStudioApp:
 
     def draw_info_panel(self) -> None:
         if self.panel_body is not None and self.panel_visibility > 0.01:
-            self.info_panel.draw(self.screen, self.panel_body, self.panel_visibility)
+            self.info_panel.draw(self.screen, self.panel_body, self.panel_visibility, self.camera.layout.ui_scale)
 
     def draw_controls(self) -> None:
-        self.control_bar.draw(self.screen, self.control_buttons, self.hovered_action)
+        self.control_bar.draw(self.screen, self.control_buttons, self.hovered_action, self.camera.layout.ui_scale)
 
     def draw_hud(self) -> None:
-        self.hud.draw(self.screen, self.paused, self.camera.zoom)
+        self.hud.draw(self.screen, self.paused, self.camera.zoom, self.camera.scale_mode, self.camera.layout.ui_scale)
 
     def action_at_screen_position(self, position: tuple[int, int]) -> str | None:
         for button in self.control_buttons:
@@ -127,6 +145,12 @@ class GravityStudioApp:
     def handle_action(self, action: str) -> None:
         if action == "toggle_pause":
             self.paused = not self.paused
+        elif action == "toggle_orbits":
+            self.show_orbits = not self.show_orbits
+        elif action == "toggle_labels":
+            self.show_labels = not self.show_labels
+        elif action == "toggle_scale":
+            self.camera.toggle_scale_mode()
         elif action == "reset":
             self.simulation.reset()
             self.camera.zoom = 1.0
