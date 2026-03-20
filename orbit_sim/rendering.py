@@ -466,6 +466,9 @@ class SceneRenderer:
     ) -> None:
         label_layer = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
         sun_center = camera.layout.scene_center
+        left_candidates: list[dict[str, object]] = []
+        right_candidates: list[dict[str, object]] = []
+
         for body in bodies:
             alpha = self._label_alpha(body, camera, selected_body)
             if alpha <= 0:
@@ -479,21 +482,82 @@ class SceneRenderer:
             color = (226, 231, 237) if body is selected_body else (142, 150, 163)
             label_surface = font.render(body.name, True, color)
             label_surface.set_alpha(alpha)
+            side = "right" if anchor.x >= sun_center.x else "left"
+            candidate = {
+                "body": body,
+                "planet_position": planet_position,
+                "anchor": anchor,
+                "label_surface": label_surface,
+                "alpha": alpha,
+                "side": side,
+                "preferred_y": int(anchor.y - label_surface.get_height() / 2),
+            }
+            if side == "right":
+                right_candidates.append(candidate)
+            else:
+                left_candidates.append(candidate)
 
-            if anchor.x >= sun_center.x:
-                label_position = (int(anchor.x + 6 * camera.layout.ui_scale), int(anchor.y - label_surface.get_height() / 2))
-                line_end = (label_position[0] - int(4 * camera.layout.ui_scale), int(anchor.y))
+        for side_candidates in (left_candidates, right_candidates):
+            self._resolve_label_stack(side_candidates, surface.get_height(), camera.layout.ui_scale)
+
+        for candidate in [*left_candidates, *right_candidates]:
+            label_surface = candidate["label_surface"]
+            anchor = candidate["anchor"]
+            planet_position = candidate["planet_position"]
+            alpha = candidate["alpha"]
+            label_y = candidate["resolved_y"]
+            if candidate["side"] == "right":
+                label_position = (int(anchor.x + 6 * camera.layout.ui_scale), label_y)
+                line_end = (label_position[0] - int(4 * camera.layout.ui_scale), label_y + label_surface.get_height() // 2)
             else:
                 label_position = (
                     int(anchor.x - label_surface.get_width() - 6 * camera.layout.ui_scale),
-                    int(anchor.y - label_surface.get_height() / 2),
+                    label_y,
                 )
-                line_end = (label_position[0] + label_surface.get_width() + int(4 * camera.layout.ui_scale), int(anchor.y))
+                line_end = (
+                    label_position[0] + label_surface.get_width() + int(4 * camera.layout.ui_scale),
+                    label_y + label_surface.get_height() // 2,
+                )
 
             pygame.draw.line(label_layer, (94, 104, 120, alpha), self._point(planet_position), line_end, 1)
             label_layer.blit(label_surface, label_position)
 
         surface.blit(label_layer, (0, 0))
+
+    def _resolve_label_stack(
+        self,
+        candidates: list[dict[str, object]],
+        surface_height: int,
+        ui_scale: float,
+    ) -> None:
+        if not candidates:
+            return
+
+        candidates.sort(key=lambda item: int(item["preferred_y"]))
+        gap = int(8 * ui_scale)
+        min_y = int(24 * ui_scale)
+        max_y = surface_height - int(28 * ui_scale)
+
+        current_y = min_y
+        for candidate in candidates:
+            label_surface = candidate["label_surface"]
+            height = label_surface.get_height()
+            preferred_y = max(min_y, min(int(candidate["preferred_y"]), max_y - height))
+            resolved_y = max(preferred_y, current_y)
+            candidate["resolved_y"] = resolved_y
+            current_y = resolved_y + height + gap
+
+        overflow = current_y - max_y
+        if overflow <= 0:
+            return
+
+        for candidate in reversed(candidates):
+            if overflow <= 0:
+                break
+            label_surface = candidate["label_surface"]
+            shift = min(overflow, max(0, int(candidate["resolved_y"]) - min_y))
+            candidate["resolved_y"] = int(candidate["resolved_y"]) - shift
+            overflow -= shift
 
     def _ensure_fonts(self, ui_scale: float) -> None:
         if abs(ui_scale - self.label_scale) < 0.01:
