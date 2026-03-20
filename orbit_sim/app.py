@@ -16,6 +16,7 @@ from orbit_sim.config import (
     TITLE_TEXT,
     WINDOW_SIZE,
 )
+from orbit_sim.models import CelestialBody
 from orbit_sim.simulation import OrbitalSimulation
 
 
@@ -31,6 +32,8 @@ class GravityStudioApp:
         self.star_field = StarField(WINDOW_SIZE)
         self.simulation = OrbitalSimulation()
         self.elapsed_time = 0.0
+        self.hovered_body: CelestialBody | None = None
+        self.selected_body: CelestialBody | None = None
         self.running = True
 
     def run(self) -> None:
@@ -47,10 +50,13 @@ class GravityStudioApp:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                self.selected_body = self.body_at_screen_position(Vector2(event.pos))
 
     def update(self, dt: float) -> None:
         self.elapsed_time += dt
         self.simulation.update(dt)
+        self.hovered_body = self.body_at_screen_position(Vector2(pygame.mouse.get_pos()))
 
     def render(self) -> None:
         self.screen.fill(SPACE_COLOR)
@@ -102,9 +108,11 @@ class GravityStudioApp:
 
     def draw_planets(self) -> None:
         for body in self.simulation.bodies:
-            position = self.scene_center + body.position()
+            position = self.body_screen_position(body)
             screen_pos = (int(position.x), int(position.y))
             glow = pygame.Surface((90, 90), pygame.SRCALPHA)
+            is_hovered = body is self.hovered_body
+            is_selected = body is self.selected_body
 
             for radius, alpha in ((24, 20), (18, 32), (12, 52)):
                 pygame.draw.circle(glow, (*body.color, alpha), (45, 45), radius)
@@ -114,6 +122,9 @@ class GravityStudioApp:
                 (screen_pos[0] - 45, screen_pos[1] - 45),
                 special_flags=pygame.BLEND_ALPHA_SDL2,
             )
+            if is_hovered or is_selected:
+                ring_color = body.accent_color if is_selected else body.color
+                pygame.draw.circle(self.screen, ring_color, screen_pos, int(body.radius) + 7, 1)
             pygame.draw.circle(self.screen, body.color, screen_pos, int(body.radius))
             pygame.draw.circle(
                 self.screen,
@@ -121,3 +132,13 @@ class GravityStudioApp:
                 (screen_pos[0] - 3, screen_pos[1] - 3),
                 max(2, int(body.radius // 3)),
             )
+
+    def body_screen_position(self, body: CelestialBody) -> Vector2:
+        return self.scene_center + body.position()
+
+    def body_at_screen_position(self, screen_position: Vector2) -> CelestialBody | None:
+        for body in reversed(self.simulation.bodies):
+            if screen_position.distance_to(self.body_screen_position(body)) <= body.radius + 6:
+                return body
+
+        return None
