@@ -5,6 +5,7 @@ from math import sin
 import pygame
 from pygame import Vector2
 
+from orbit_sim.camera import SolarCamera
 from orbit_sim.config import SPACE_HAZE, STAR_CORE, STAR_GLOW
 from orbit_sim.models import CelestialBody
 
@@ -13,17 +14,16 @@ class SceneRenderer:
     def draw(
         self,
         surface: pygame.Surface,
-        scene_center: Vector2,
+        camera: SolarCamera,
         bodies: list[CelestialBody],
         elapsed_time: float,
-        zoom: float,
         hovered_body: CelestialBody | None,
         selected_body: CelestialBody | None,
     ) -> None:
-        self.draw_space_haze(surface, zoom)
-        self.draw_orbits(surface, scene_center, bodies, zoom, selected_body)
-        self.draw_star(surface, elapsed_time, zoom)
-        self.draw_planets(surface, scene_center, bodies, elapsed_time, zoom, hovered_body, selected_body)
+        self.draw_space_haze(surface, camera.zoom)
+        self.draw_orbits(surface, camera, bodies, selected_body)
+        self.draw_star(surface, camera, elapsed_time)
+        self.draw_planets(surface, camera, bodies, elapsed_time, hovered_body, selected_body)
 
     def draw_space_haze(self, surface: pygame.Surface, zoom: float) -> None:
         size = surface.get_size()
@@ -38,12 +38,12 @@ class SceneRenderer:
 
         surface.blit(haze, (0, 0))
 
-    def draw_star(self, surface: pygame.Surface, elapsed_time: float, zoom: float) -> None:
-        size = surface.get_size()
-        center = (size[0] // 2, size[1] // 2)
+    def draw_star(self, surface: pygame.Surface, camera: SolarCamera, elapsed_time: float) -> None:
+        center_vector = camera.layout.scene_center
+        center = (int(center_vector.x), int(center_vector.y))
         pulse = 1.0 + sin(elapsed_time * 0.9) * 0.018
-        base_glow = max(300, int(min(size) * 0.24))
-        star_scale = (0.88 + (zoom - 1.0) * 0.25) * pulse
+        base_glow = int(camera.sun_radius() * 15)
+        star_scale = pulse
         glow_size = int(base_glow * star_scale)
         glow = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
         glow_center = (glow_size // 2, glow_size // 2)
@@ -56,7 +56,7 @@ class SceneRenderer:
             (center[0] - glow_size // 2, center[1] - glow_size // 2),
             special_flags=pygame.BLEND_ALPHA_SDL2,
         )
-        sun_outer = max(16, int(min(size) * 0.015 * star_scale))
+        sun_outer = max(16, int(camera.sun_radius() * star_scale))
         sun_inner = max(10, int(sun_outer * 0.62))
         pygame.draw.circle(surface, STAR_GLOW, center, sun_outer)
         pygame.draw.circle(surface, STAR_CORE, center, sun_inner)
@@ -64,16 +64,15 @@ class SceneRenderer:
     def draw_orbits(
         self,
         surface: pygame.Surface,
-        scene_center: Vector2,
+        camera: SolarCamera,
         bodies: list[CelestialBody],
-        zoom: float,
         selected_body: CelestialBody | None,
     ) -> None:
         orbit_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        center = (int(scene_center.x), int(scene_center.y))
+        center = (int(camera.layout.scene_center.x), int(camera.layout.scene_center.y))
 
         for body in bodies:
-            scaled_radius = int(body.orbit_radius * zoom)
+            scaled_radius = int(camera.orbit_radius(body))
             base_color = (86, 109, 156, 42)
             halo_color = (150, 170, 212, 12)
             if body is selected_body:
@@ -88,23 +87,22 @@ class SceneRenderer:
     def draw_planets(
         self,
         surface: pygame.Surface,
-        scene_center: Vector2,
+        camera: SolarCamera,
         bodies: list[CelestialBody],
         elapsed_time: float,
-        zoom: float,
         hovered_body: CelestialBody | None,
         selected_body: CelestialBody | None,
     ) -> None:
         for body in bodies:
-            position = scene_center + body.position() * zoom
+            position = camera.body_position(body)
             screen_pos = (int(position.x), int(position.y))
-            planet_radius = max(4, int(body.radius * zoom))
+            planet_radius = max(3, int(camera.planet_radius(body)))
             glow_size = max(54, planet_radius * 6)
             glow = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
             glow_center = glow_size // 2
             is_hovered = body is hovered_body
             is_selected = body is selected_body
-            light_vector = (scene_center - position)
+            light_vector = (camera.layout.scene_center - position)
             if light_vector.length_squared() > 0:
                 light_vector = light_vector.normalize()
             else:

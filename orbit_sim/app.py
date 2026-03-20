@@ -6,6 +6,7 @@ import pygame
 from pygame import Vector2
 
 from orbit_sim.background import StarField
+from orbit_sim.camera import SolarCamera
 from orbit_sim.config import (
     FALLBACK_WINDOW_SIZE,
     SPACE_COLOR,
@@ -24,7 +25,7 @@ class GravityStudioApp:
         self.viewport = self._detect_viewport()
         self.screen = self._create_display_surface()
         self.clock = pygame.time.Clock()
-        self.scene_center = Vector2(self.viewport[0] / 2, self.viewport[1] / 2)
+        self.camera = SolarCamera(self.viewport)
         self.star_field = StarField(self.viewport)
         self.simulation = OrbitalSimulation()
         self.hud = HudChrome()
@@ -38,8 +39,6 @@ class GravityStudioApp:
         self.panel_visibility = 0.0
         self.hovered_action: str | None = None
         self.control_buttons = self.control_bar.build_buttons(*self.viewport, paused=False)
-        self.zoom = 1.0
-        self.target_zoom = 1.0
         self.paused = False
         self.running = True
 
@@ -64,13 +63,13 @@ class GravityStudioApp:
                 else:
                     self.selected_body = self.body_at_screen_position(Vector2(event.pos))
             elif event.type == pygame.MOUSEWHEEL:
-                self.target_zoom = max(0.65, min(1.85, self.target_zoom + event.y * 0.08))
+                self.camera.adjust_zoom(event.y * 0.08)
 
     def update(self, dt: float) -> None:
         self.elapsed_time += dt
         if not self.paused:
             self.simulation.update(dt)
-        self.zoom += (self.target_zoom - self.zoom) * min(1.0, dt * 8.0)
+        self.camera.update(dt)
         self.control_buttons = self.control_bar.build_buttons(*self.viewport, paused=self.paused)
         self.hovered_action = self.action_at_screen_position(pygame.mouse.get_pos())
         self.hovered_body = self.body_at_screen_position(Vector2(pygame.mouse.get_pos()))
@@ -87,10 +86,9 @@ class GravityStudioApp:
         self.star_field.draw(self.screen, self.elapsed_time)
         self.scene_renderer.draw(
             self.screen,
-            self.scene_center,
+            self.camera,
             self.simulation.bodies,
             self.elapsed_time,
-            self.zoom,
             self.hovered_body,
             self.selected_body,
         )
@@ -100,11 +98,11 @@ class GravityStudioApp:
         pygame.display.flip()
 
     def body_screen_position(self, body: CelestialBody) -> Vector2:
-        return self.scene_center + body.position() * self.zoom
+        return self.camera.body_position(body)
 
     def body_at_screen_position(self, screen_position: Vector2) -> CelestialBody | None:
         for body in reversed(self.simulation.bodies):
-            if screen_position.distance_to(self.body_screen_position(body)) <= max(4, body.radius * self.zoom) + 6:
+            if screen_position.distance_to(self.body_screen_position(body)) <= self.camera.planet_radius(body) + 6:
                 return body
 
         return None
@@ -117,7 +115,7 @@ class GravityStudioApp:
         self.control_bar.draw(self.screen, self.control_buttons, self.hovered_action)
 
     def draw_hud(self) -> None:
-        self.hud.draw(self.screen, self.paused, self.zoom)
+        self.hud.draw(self.screen, self.paused, self.camera.zoom)
 
     def action_at_screen_position(self, position: tuple[int, int]) -> str | None:
         for button in self.control_buttons:
@@ -131,8 +129,8 @@ class GravityStudioApp:
             self.paused = not self.paused
         elif action == "reset":
             self.simulation.reset()
-            self.zoom = 1.0
-            self.target_zoom = 1.0
+            self.camera.zoom = 1.0
+            self.camera.target_zoom = 1.0
             self.paused = False
             self.selected_body = None
             self.panel_body = None

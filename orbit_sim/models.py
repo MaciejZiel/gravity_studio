@@ -24,5 +24,8 @@ class CelestialBody:
     def position(self) -> Vector2:
         return Vector2(cos(self.angle), sin(self.angle)) * self.orbit_radius
 
+    def direction(self) -> Vector2:
+        return Vector2(cos(self.angle), sin(self.angle))
+
     def reset(self) -> None:
         self.angle = self.starting_angle
