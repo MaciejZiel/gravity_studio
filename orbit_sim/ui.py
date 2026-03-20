@@ -411,7 +411,7 @@ class TimelineStrip:
         pygame.draw.rect(panel, (42, 48, 60, 220), panel.get_rect(), width=1, border_radius=int(22 * ui_scale))
         surface.blit(panel, panel_rect.topleft)
 
-        label_surface = self.label_font.render("SIMULATION DATE", True, (126, 136, 154))
+        label_surface = self.label_font.render("SIMULATION TIME", True, (126, 136, 154))
         value_surface = self.meta_font.render(date_label, True, (228, 233, 240))
         surface.blit(label_surface, (panel_rect.x + int(20 * ui_scale), panel_rect.y + int(16 * ui_scale)))
         surface.blit(value_surface, (panel_rect.x + int(20 * ui_scale), panel_rect.y + int(36 * ui_scale)))

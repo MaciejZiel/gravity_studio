@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from math import tau
 
 from orbit_sim.models import CelestialBody
 from orbit_sim.solar_system import PlanetDefinition, SOLAR_SYSTEM_PLANETS
 
 
-SIMULATION_EPOCH = date(2000, 1, 1)
+SIMULATION_EPOCH = datetime(2000, 1, 1, 12, 0, 0)
 TIMELINE_RANGE_DAYS = 365.25 * 165
 BASE_DAYS_PER_SECOND = 1.2
 TIME_SPEED_LEVELS = (1, 10, 100, 1000)
@@ -52,6 +52,9 @@ class OrbitalSimulation:
         self._sync_body_angles()
 
     def current_date(self) -> date:
+        return self.current_datetime().date()
+
+    def current_datetime(self) -> datetime:
         return self.epoch + timedelta(days=self.simulation_days)
 
     def _default_bodies(self) -> list[CelestialBody]:

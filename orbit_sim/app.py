@@ -204,7 +204,7 @@ class GravityStudioApp:
         )
 
     def draw_timeline(self) -> None:
-        date_label = self.simulation.current_date().strftime("%b %d, %Y")
+        date_label = self.simulation.current_datetime().strftime("%b %d, %Y  %H:%M:%S")
         self.timeline_strip.draw(
             self.screen,
             self.timeline_buttons,
