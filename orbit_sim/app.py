@@ -91,6 +91,7 @@ class GravityStudioApp:
             self.screen,
             self.scene_center,
             self.simulation.bodies,
+            self.elapsed_time,
             self.zoom,
             self.hovered_body,
             self.selected_body,
