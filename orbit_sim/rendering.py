@@ -19,6 +19,10 @@ class SceneRenderer:
         self.selected_label_font: pygame.font.Font | None = None
         self.focus_renderer = SpinningPlanetRenderer()
         self.texture_library = PlanetTextureLibrary()
+        self._space_haze_cache: dict[tuple[tuple[int, int], float], pygame.Surface] = {}
+        self._halo_cache: dict[tuple[str, int], pygame.Surface] = {}
+        self._ring_cache: dict[tuple[int, bool], pygame.Surface] = {}
+        self._label_text_cache: dict[tuple[int, str, tuple[int, int, int]], pygame.Surface] = {}
 
     def draw(
         self,
@@ -47,17 +51,22 @@ class SceneRenderer:
             self.draw_focus_closeup(surface, camera, selected_body, simulation_days, focus_rotation_offset)
 
     def draw_space_haze(self, surface: pygame.Surface, zoom: float) -> None:
-        size = surface.get_size()
-        haze = pygame.Surface(size, pygame.SRCALPHA)
-        center = (int(size[0] * 0.44), int(size[1] * 0.54))
-        haze_scale = 0.9 + (zoom - 1.0) * 0.18
+        cache_key = (surface.get_size(), round(zoom, 2))
+        if cache_key not in self._space_haze_cache:
+            size = surface.get_size()
+            haze = pygame.Surface(size, pygame.SRCALPHA)
+            center = (int(size[0] * 0.44), int(size[1] * 0.54))
+            haze_scale = 0.9 + (zoom - 1.0) * 0.18
 
-        min_dimension = min(size)
-        for radius_factor, alpha in ((0.5, 9), (0.32, 18), (0.2, 28)):
-            radius = int(min_dimension * radius_factor)
-            pygame.draw.circle(haze, (*SPACE_HAZE, alpha), center, int(radius * haze_scale))
+            min_dimension = min(size)
+            for radius_factor, alpha in ((0.5, 9), (0.32, 18), (0.2, 28)):
+                radius = int(min_dimension * radius_factor)
+                pygame.draw.circle(haze, (*SPACE_HAZE, alpha), center, int(radius * haze_scale))
+            self._space_haze_cache[cache_key] = haze
+            if len(self._space_haze_cache) > 24:
+                self._space_haze_cache.clear()
 
-        surface.blit(haze, (0, 0))
+        surface.blit(self._space_haze_cache[cache_key], (0, 0))
 
     def draw_star(self, surface: pygame.Surface, camera: SolarCamera, elapsed_time: float) -> None:
         center_vector = camera.layout.scene_center
@@ -261,13 +270,29 @@ class SceneRenderer:
         planet_radius: int,
         body: CelestialBody,
     ) -> None:
-        halo_alpha = 10 if body.name in {"Mercury", "Venus", "Earth", "Mars"} else 16
         halo_radius = int(planet_radius * 2.1)
-        halo_surface = pygame.Surface((halo_radius * 2, halo_radius * 2), pygame.SRCALPHA)
-        pygame.draw.circle(halo_surface, (*body.color, halo_alpha), (halo_radius, halo_radius), halo_radius)
+        halo_surface = self._planet_halo_surface(body, halo_radius)
         surface.blit(halo_surface, (screen_pos[0] - halo_radius, screen_pos[1] - halo_radius), special_flags=pygame.BLEND_ALPHA_SDL2)
 
     def _draw_saturn_rings(self, surface: pygame.Surface, center: tuple[int, int], radius: int, front: bool) -> None:
+        ring_surface = self._saturn_ring_surface(radius, front)
+        ring_size = ring_surface.get_width()
+        surface.blit(ring_surface, (center[0] - ring_size // 2, center[1] - ring_size // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
+
+    def _planet_halo_surface(self, body: CelestialBody, halo_radius: int) -> pygame.Surface:
+        cache_key = (body.name, halo_radius)
+        if cache_key not in self._halo_cache:
+            halo_alpha = 10 if body.name in {"Mercury", "Venus", "Earth", "Mars"} else 16
+            halo_surface = pygame.Surface((halo_radius * 2, halo_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(halo_surface, (*body.color, halo_alpha), (halo_radius, halo_radius), halo_radius)
+            self._halo_cache[cache_key] = halo_surface
+        return self._halo_cache[cache_key]
+
+    def _saturn_ring_surface(self, radius: int, front: bool) -> pygame.Surface:
+        cache_key = (radius, front)
+        if cache_key in self._ring_cache:
+            return self._ring_cache[cache_key]
+
         ring_size = radius * 6
         ring_surface = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
         if front:
@@ -303,7 +328,8 @@ class SceneRenderer:
                 pygame.draw.ellipse(ring_surface, color, ellipse_rect, line_width)
 
         ring_surface.set_clip(None)
-        surface.blit(ring_surface, (center[0] - ring_size // 2, center[1] - ring_size // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
+        self._ring_cache[cache_key] = ring_surface
+        return ring_surface
 
     def _draw_atmosphere(
         self,
@@ -502,7 +528,7 @@ class SceneRenderer:
             anchor = planet_position + direction * (planet_radius + 12 * camera.layout.ui_scale)
             font = self.selected_label_font if body is selected_body else self.label_font
             color = (226, 231, 237) if body is selected_body else (142, 150, 163)
-            label_surface = font.render(body.name, True, color)
+            label_surface = self._label_surface(font, body.name, color)
             label_surface.set_alpha(alpha)
             side = "right" if anchor.x >= sun_center.x else "left"
             candidate = {
@@ -586,8 +612,20 @@ class SceneRenderer:
             return
 
         self.label_scale = ui_scale
+        self._label_text_cache.clear()
         self.label_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
         self.selected_label_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)), bold=True)
+
+    def _label_surface(
+        self,
+        font: pygame.font.Font,
+        text: str,
+        color: tuple[int, int, int],
+    ) -> pygame.Surface:
+        cache_key = (id(font), text, color)
+        if cache_key not in self._label_text_cache:
+            self._label_text_cache[cache_key] = font.render(text, True, color)
+        return self._label_text_cache[cache_key].copy()
 
     def _label_alpha(
         self,
