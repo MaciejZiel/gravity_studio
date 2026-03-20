@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from math import sin
+from math import cos, sin, tau
 
 import pygame
 from pygame import Vector2
@@ -58,9 +58,11 @@ class SceneRenderer:
         glow_size = int(base_glow * star_scale)
         glow = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
         glow_center = (glow_size // 2, glow_size // 2)
+        glow_center_vector = Vector2(glow_center)
 
         for radius_factor, alpha in ((0.42, 5), (0.28, 10), (0.18, 18), (0.11, 34)):
             pygame.draw.circle(glow, (*STAR_GLOW, alpha), glow_center, max(1, int(glow_size * radius_factor)))
+        self._draw_solar_corona(glow, glow_center_vector, glow_size, elapsed_time)
 
         surface.blit(
             glow,
@@ -69,8 +71,10 @@ class SceneRenderer:
         )
         sun_outer = max(16, int(camera.sun_radius() * star_scale))
         sun_inner = max(10, int(sun_outer * 0.62))
-        pygame.draw.circle(surface, (250, 220, 158), center, int(sun_outer * 1.16))
-        pygame.draw.circle(surface, STAR_GLOW, center, sun_outer)
+        solar_disc = pygame.Surface((sun_outer * 5, sun_outer * 5), pygame.SRCALPHA)
+        disc_center = Vector2(solar_disc.get_width() / 2, solar_disc.get_height() / 2)
+        self._draw_solar_disc(solar_disc, disc_center, sun_outer, elapsed_time)
+        surface.blit(solar_disc, (center[0] - solar_disc.get_width() // 2, center[1] - solar_disc.get_height() // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
         pygame.draw.circle(surface, STAR_CORE, center, sun_inner)
 
     def draw_orbits(
@@ -260,6 +264,44 @@ class SceneRenderer:
 
     def _point(self, vector: Vector2) -> tuple[int, int]:
         return int(vector.x), int(vector.y)
+
+    def _draw_solar_corona(
+        self,
+        surface: pygame.Surface,
+        center: Vector2,
+        glow_size: int,
+        elapsed_time: float,
+    ) -> None:
+        for index in range(18):
+            angle = tau * index / 18 + elapsed_time * 0.025
+            arm_length = glow_size * (0.18 + 0.04 * sin(elapsed_time * 0.4 + index))
+            tip = center + Vector2(cos(angle), sin(angle)) * arm_length
+            pygame.draw.line(
+                surface,
+                (255, 208, 132, 16),
+                self._point(center),
+                self._point(tip),
+                max(1, glow_size // 80),
+            )
+
+    def _draw_solar_disc(
+        self,
+        surface: pygame.Surface,
+        center: Vector2,
+        radius: int,
+        elapsed_time: float,
+    ) -> None:
+        pygame.draw.circle(surface, (250, 220, 158, 210), self._point(center), int(radius * 1.18))
+        pygame.draw.circle(surface, STAR_GLOW, self._point(center), radius)
+        pygame.draw.circle(surface, STAR_CORE, self._point(center), int(radius * 0.72))
+
+        for index in range(16):
+            angle = tau * index / 16 + elapsed_time * 0.05
+            distance = radius * (0.14 + 0.22 * ((index % 3) / 3))
+            granule_center = center + Vector2(cos(angle), sin(angle)) * distance
+            granule_radius = max(2, int(radius * (0.08 + 0.03 * sin(index + elapsed_time * 0.3))))
+            color = (255, 243, 214, 34 + (index % 4) * 14)
+            pygame.draw.circle(surface, color, self._point(granule_center), granule_radius)
 
     def draw_labels(
         self,
