@@ -269,7 +269,7 @@ class SceneRenderer:
         traversed = 0.0
         for index, length in enumerate(segment_lengths):
             if traversed + length >= target and length > 0:
-                local = (target - traversed) / length
+                local = max(0.0, min(1.0, (target - traversed) / length))
                 start = Vector2(points[index])
                 end = Vector2(points[index + 1])
                 point = start.lerp(end, local)
