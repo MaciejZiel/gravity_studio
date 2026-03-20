@@ -8,7 +8,9 @@ A fullscreen, astronomy-inspired Solar System visualization built with Python an
 - Real Solar System dataset with the Sun and all 8 planets in correct order
 - Compressed but realistic-inspired orbit scaling for readability, with alternate scale mode
 - Scene presets for `System`, `Inner`, `Outer`, and planet `Focus` views
+- Textured planet focus close-up with a spinning pseudo-3D sphere built from NASA imagery
 - Timeline scrubber with simulation date and `1x / 10x / 100x / 1000x` time controls
+- Live local clock overlay plus per-focus timestamp readout with hour, minute, and second precision
 - Minimal orbit lines, cinematic focus vignette, and restrained solar rendering
 - Richer planet treatment with surface cues, atmospheres, and Saturn ring shadowing
 - Adaptive planet labels that respond to scene and zoom level
@@ -34,6 +36,7 @@ python -m orbit_sim
 ## Controls
 
 - `Left click`: select a planet
+- `Left click` on a planet: jump into focus and show the rotating close-up preview
 - `Mouse wheel`: zoom in or out
 - `Q / W / E`: switch between `System`, `Inner`, and `Outer` scenes
 - `F`: jump to focus view for the selected planet
