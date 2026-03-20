@@ -21,7 +21,8 @@ from orbit_sim.models import CelestialBody
 from orbit_sim.rendering import SceneRenderer
 from orbit_sim.settings import StudioSettings, StudioSettingsStore
 from orbit_sim.simulation import OrbitalSimulation
-from orbit_sim.ui import ControlBar, DateShortcutStrip, EventHighlight, FocusBadge, HudChrome, InfoPanel, SceneStrip, SkyContextStrip, TimelineStrip
+from orbit_sim.tours import TOUR_DEFINITIONS, TourDefinition, TourStep
+from orbit_sim.ui import ControlBar, DateShortcutStrip, EventHighlight, FocusBadge, HudChrome, InfoPanel, SceneStrip, SkyContextStrip, TimelineStrip, TourCaption, TourStrip
 
 
 class GravityStudioApp:
@@ -48,6 +49,8 @@ class GravityStudioApp:
         self.event_highlight = EventHighlight()
         self.control_bar = ControlBar()
         self.scene_strip = SceneStrip()
+        self.tour_strip = TourStrip()
+        self.tour_caption = TourCaption()
         self.date_shortcuts = DateShortcutStrip()
         self.sky_context = SkyContextStrip()
         self.timeline_strip = TimelineStrip()
@@ -77,9 +80,15 @@ class GravityStudioApp:
             self.simulation.timeline_progress,
         )
         self.scene_buttons = []
+        self.tour_buttons = []
         self.date_buttons = []
         self._ui_layout_key: tuple[object, ...] | None = None
         self.dragging_timeline = False
+        self.active_tour: TourDefinition | None = None
+        self.active_tour_step_index = 0
+        self.tour_step_elapsed = 0.0
+        self.presentation_mode = False
+        self._presentation_restore_ui_hidden = False
         self.paused = False
         self.running = True
         self._refresh_ui_layout(force=True)
@@ -111,6 +120,7 @@ class GravityStudioApp:
                     self.dragging_timeline = True
                     self.update_timeline_from_pointer(event.pos[0])
                 else:
+                    self._stop_tour_if_manual()
                     previous_selection = self.selected_body
                     self.selected_body = self.body_at_screen_position(Vector2(event.pos))
                     if self.selected_body is not previous_selection:
@@ -136,6 +146,7 @@ class GravityStudioApp:
         self.elapsed_time += dt
         if not self.paused and not self.dragging_timeline:
             self.simulation.update(dt)
+        self._update_tour(dt)
         self.camera.update(dt, self.elapsed_time)
         self.soundscape.update(dt, self.camera.scene_mode == "focus", self.simulation.live_mode, self.ui_hidden)
         self._refresh_ui_layout()
@@ -188,6 +199,9 @@ class GravityStudioApp:
                 if self.show_sky:
                     self.draw_sky_context()
             self.draw_scene_buttons()
+            self.draw_tour_buttons()
+        if self.active_tour is not None:
+            self.draw_tour_caption()
         self.draw_intro_fade()
         self.draw_notification()
         pygame.display.flip()
@@ -248,6 +262,9 @@ class GravityStudioApp:
     def draw_scene_buttons(self) -> None:
         self.scene_strip.draw(self.screen, self.scene_buttons, self.camera.layout.ui_scale)
 
+    def draw_tour_buttons(self) -> None:
+        self.tour_strip.draw(self.screen, self.tour_buttons, self.camera.layout.ui_scale)
+
     def draw_date_shortcuts(self) -> None:
         self.date_shortcuts.draw(self.screen, self.date_buttons, self.camera.layout.ui_scale)
 
@@ -259,11 +276,18 @@ class GravityStudioApp:
     def draw_sky_context(self) -> None:
         self.sky_context.draw(self.screen, self.sky_context_markers(), self.camera.layout.ui_scale)
 
+    def draw_tour_caption(self) -> None:
+        if self.active_tour is None:
+            return
+        step = self.active_tour.steps[self.active_tour_step_index]
+        progress = min(1.0, self.tour_step_elapsed / max(0.01, step.duration))
+        self.tour_caption.draw(self.screen, step.title, step.caption, progress, self.camera.layout.ui_scale)
+
     def action_at_screen_position(self, position: tuple[int, int]) -> str | None:
         if self.ui_hidden:
             return None
 
-        buttons = [*self.control_buttons, *self.scene_buttons]
+        buttons = [*self.control_buttons, *self.scene_buttons, *self.tour_buttons]
         if self.camera.scene_mode != "focus":
             buttons.extend(self.timeline_buttons)
             buttons.extend(self.date_buttons)
@@ -295,19 +319,30 @@ class GravityStudioApp:
             self.soundscape.set_enabled(enabled, self.settings.master_volume)
         elif action == "toggle_scale":
             self.camera.toggle_scale_mode()
+        elif action == "toggle_presentation":
+            self._set_presentation_mode(not self.presentation_mode)
         elif action == "scene_system":
+            self._stop_tour_if_manual()
             self.camera.set_scene("full_system")
         elif action == "scene_inner":
+            self._stop_tour_if_manual()
             self.camera.set_scene("inner_worlds")
         elif action == "scene_giants":
+            self._stop_tour_if_manual()
             self.camera.set_scene("gas_giants")
         elif action == "scene_outer":
+            self._stop_tour_if_manual()
             self.camera.set_scene("outer_worlds")
         elif action == "scene_focus" and self.selected_body is not None:
+            self._stop_tour_if_manual()
             self.camera.set_focus_body(self.selected_body)
+        elif action in {tour.action for tour in TOUR_DEFINITIONS}:
+            self._start_tour(action, presentation=False)
         elif action.startswith("speed_"):
+            self._stop_tour_if_manual()
             self.simulation.set_time_speed_index(int(action.rsplit("_", 1)[1]))
         elif action == "reset":
+            self._stop_tour_if_manual()
             self.simulation.reset()
             self.camera.reset()
             self.paused = False
@@ -319,6 +354,7 @@ class GravityStudioApp:
         elif action == "capture_clean":
             self.capture_screenshot(clean=True)
         elif action.startswith("jump_"):
+            self._stop_tour_if_manual()
             self.simulation.jump_to_bookmark(action)
             if action == "jump_now":
                 self.paused = False
@@ -357,6 +393,12 @@ class GravityStudioApp:
             self.handle_action("scene_giants")
         elif event.key == pygame.K_e:
             self.handle_action("scene_outer")
+        elif event.key == pygame.K_t:
+            self.handle_action("tour_grand")
+        elif event.key == pygame.K_y:
+            self.handle_action("tour_history")
+        elif event.key == pygame.K_d:
+            self.handle_action("toggle_presentation")
 
     def capture_screenshot(self, clean: bool = False) -> None:
         screenshot_dir = Path("screenshots")
@@ -442,6 +484,70 @@ class GravityStudioApp:
             markers.append((body.name, longitude, body.accent_color))
         return markers
 
+    def _start_tour(self, action: str, presentation: bool) -> None:
+        tour = next((item for item in TOUR_DEFINITIONS if item.action == action), None)
+        if tour is None:
+            return
+        self.active_tour = tour
+        self.active_tour_step_index = 0
+        self.tour_step_elapsed = 0.0
+        self.presentation_mode = presentation
+        self.paused = False
+        self._apply_tour_step(tour.steps[0])
+
+    def _update_tour(self, dt: float) -> None:
+        if self.active_tour is None:
+            return
+
+        self.tour_step_elapsed += dt
+        step = self.active_tour.steps[self.active_tour_step_index]
+        if self.tour_step_elapsed < step.duration:
+            return
+
+        self.active_tour_step_index += 1
+        if self.active_tour_step_index >= len(self.active_tour.steps):
+            if self.presentation_mode:
+                self.active_tour_step_index = 0
+            else:
+                self._stop_tour_if_manual(force=True)
+                return
+
+        self.tour_step_elapsed = 0.0
+        self._apply_tour_step(self.active_tour.steps[self.active_tour_step_index])
+
+    def _apply_tour_step(self, step: TourStep) -> None:
+        if step.jump_action is not None:
+            self.simulation.jump_to_bookmark(step.jump_action)
+        if step.focus_body is not None:
+            focus_body = self.simulation.body_named(step.focus_body)
+            self.selected_body = focus_body
+            self.panel_body = focus_body
+            self.camera.set_focus_body(focus_body)
+        else:
+            self.selected_body = None
+            self.camera.set_scene(step.scene_mode)
+
+    def _set_presentation_mode(self, enabled: bool) -> None:
+        if enabled:
+            self._presentation_restore_ui_hidden = self.ui_hidden
+            self.ui_hidden = True
+            self._start_tour("tour_grand", presentation=True)
+            return
+
+        self.ui_hidden = self._presentation_restore_ui_hidden
+        self.presentation_mode = False
+        self._stop_tour_if_manual(force=True)
+
+    def _stop_tour_if_manual(self, force: bool = False) -> None:
+        if self.active_tour is None:
+            return
+        if not force and self.presentation_mode:
+            return
+        self.active_tour = None
+        self.active_tour_step_index = 0
+        self.tour_step_elapsed = 0.0
+        self.presentation_mode = False
+
     def _detect_viewport(self) -> tuple[int, int]:
         info = pygame.display.Info()
         width = info.current_w or FALLBACK_WINDOW_SIZE[0]
@@ -507,6 +613,8 @@ class GravityStudioApp:
             self.show_sky,
             self.camera.scale_mode,
             self.camera.scene_mode,
+            self.active_tour.action if self.active_tour is not None else None,
+            self.presentation_mode,
             self.simulation.time_speed_index,
             round(self.simulation.timeline_progress, 5),
             self.selected_body is not None,
@@ -546,6 +654,12 @@ class GravityStudioApp:
             ui_scale,
             self.camera.scene_mode,
             self.selected_body is not None,
+        )
+        self.tour_buttons = self.tour_strip.build_buttons(
+            self.viewport[0],
+            ui_scale,
+            self.active_tour.action if self.active_tour is not None else None,
+            self.presentation_mode,
         )
         self.date_buttons = self.date_shortcuts.build_buttons(
             *self.viewport,
