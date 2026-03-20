@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from math import radians
+from math import radians, tau
 
-from orbit_sim.models import CelestialBody
+from orbit_sim.models import CelestialBody, MoonBody
+from orbit_sim.satellites import MAJOR_MOONS, MoonDefinition
 from orbit_sim.solar_system import PlanetDefinition, SOLAR_SYSTEM_PLANETS
 
 
@@ -20,6 +21,8 @@ class TimelineBookmark:
     action: str
     label: str
     moment: datetime
+    description: str = ""
+    featured_body: str | None = None
 
 
 class OrbitalSimulation:
@@ -34,6 +37,7 @@ class OrbitalSimulation:
         self.simulation_days = 0.0
         self.live_mode = False
         self.bodies = self._default_bodies()
+        self.moons = self._default_moons()
         self._sync_body_angles()
 
     def update(self, dt: float) -> None:
@@ -46,6 +50,7 @@ class OrbitalSimulation:
         self.simulation_days = 0.0
         self.live_mode = False
         self.bodies = self._default_bodies()
+        self.moons = self._default_moons()
         self._sync_body_angles()
 
     @property
@@ -106,11 +111,13 @@ class OrbitalSimulation:
     def bookmarks(self) -> list[TimelineBookmark]:
         current_year = self.current_datetime().year
         return [
-            TimelineBookmark("jump_now", "Now", datetime.now().replace(microsecond=0)),
-            TimelineBookmark("jump_equinox", "Equinox", datetime(current_year, 3, 20, 12, 0, 0)),
-            TimelineBookmark("jump_solstice", "Solstice", datetime(current_year, 6, 21, 12, 0, 0)),
-            TimelineBookmark("jump_apollo", "Apollo 11", datetime(1969, 7, 20, 20, 17, 0)),
-            TimelineBookmark("jump_voyager", "Voyager 1", datetime(1977, 9, 5, 12, 56, 0)),
+            TimelineBookmark("jump_now", "Now", datetime.now().replace(microsecond=0), "Match the current live heliocentric arrangement."),
+            TimelineBookmark("jump_equinox", "Equinox", datetime(current_year, 3, 20, 12, 0, 0), "Solar illumination crosses Earth's equator evenly.", "Earth"),
+            TimelineBookmark("jump_solstice", "Solstice", datetime(current_year, 6, 21, 12, 0, 0), "Earth's axial tilt is at a seasonal extreme.", "Earth"),
+            TimelineBookmark("jump_eclipse", "Eclipse Season", datetime(2024, 4, 8, 18, 18, 0), "The Sun, Moon and Earth line up for the 2024 total solar eclipse.", "Earth"),
+            TimelineBookmark("jump_apollo", "Apollo 11", datetime(1969, 7, 20, 20, 17, 0), "Apollo 11 lands in the Sea of Tranquility.", "Earth"),
+            TimelineBookmark("jump_voyager", "Voyager 1", datetime(1977, 9, 5, 12, 56, 0), "Voyager 1 begins its outward grand tour.", "Jupiter"),
+            TimelineBookmark("jump_webb", "JWST", datetime(2022, 1, 24, 19, 0, 0), "James Webb settles near the Earth-Sun L2 point.", "Earth"),
         ]
 
     def jump_to_bookmark(self, action: str) -> None:
@@ -122,6 +129,9 @@ class OrbitalSimulation:
 
     def _default_bodies(self) -> list[CelestialBody]:
         return [self._create_body(definition) for definition in SOLAR_SYSTEM_PLANETS]
+
+    def _default_moons(self) -> list[MoonBody]:
+        return [self._create_moon(definition) for definition in MAJOR_MOONS]
 
     def _create_body(self, definition: PlanetDefinition) -> CelestialBody:
         starting_angle = -radians(definition.mean_longitude_deg)
@@ -146,6 +156,34 @@ class OrbitalSimulation:
             has_rings=definition.has_rings,
         )
 
+    def _create_moon(self, definition: MoonDefinition) -> MoonBody:
+        starting_angle = -radians((len(definition.name) * 37) % 360)
+        return MoonBody(
+            name=definition.name,
+            parent_name=definition.parent_name,
+            angular_speed=tau / definition.orbital_period_days,
+            angle=starting_angle,
+            starting_angle=starting_angle,
+            radius_km=definition.radius_km,
+            orbital_distance_km=definition.orbital_distance_km,
+            orbital_period_days=definition.orbital_period_days,
+            inclination_deg=definition.inclination_deg,
+            color=definition.color,
+            accent_color=definition.accent_color,
+            fact=definition.fact,
+        )
+
+    def body_named(self, name: str) -> CelestialBody | None:
+        for body in self.bodies:
+            if body.name == name:
+                return body
+        return None
+
+    def moons_for(self, parent_name: str) -> list[MoonBody]:
+        return [moon for moon in self.moons if moon.parent_name == parent_name]
+
     def _sync_body_angles(self) -> None:
         for body in self.bodies:
             body.angle = body.starting_angle + body.angular_speed * self.simulation_days
+        for moon in self.moons:
+            moon.angle = moon.starting_angle + moon.angular_speed * self.simulation_days

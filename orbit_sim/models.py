@@ -51,3 +51,30 @@ class CelestialBody:
 
     def reset(self) -> None:
         self.angle = self.starting_angle
+
+
+@dataclass
+class MoonBody:
+    name: str
+    parent_name: str
+    angular_speed: float
+    angle: float
+    starting_angle: float
+    radius_km: float
+    orbital_distance_km: float
+    orbital_period_days: float
+    inclination_deg: float
+    color: tuple[int, int, int]
+    accent_color: tuple[int, int, int]
+    fact: str
+
+    def orbital_offset(self, angle: float | None = None) -> Vector2:
+        orbital_angle = self.angle if angle is None else angle
+        inclination = radians(self.inclination_deg)
+        return Vector2(
+            cos(orbital_angle),
+            sin(orbital_angle) * max(0.34, cos(inclination)),
+        )
+
+    def reset(self) -> None:
+        self.angle = self.starting_angle
