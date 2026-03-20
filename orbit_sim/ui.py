@@ -573,11 +573,12 @@ class DateShortcutStrip:
         self._ensure_fonts(ui_scale)
         labels = [(bookmark.action, bookmark.label) for bookmark in bookmarks]
         y = height - int(170 * ui_scale)
-        x = int(width * 0.5) - int(340 * ui_scale)
         gap = int(8 * ui_scale)
+        widths = [max(int(70 * ui_scale), self.button_font.size(label)[0] + int(24 * ui_scale)) for _, label in labels]
+        total_width = sum(widths) + gap * max(0, len(widths) - 1)
+        x = max(int(42 * ui_scale), (width - total_width) // 2)
         buttons: list[ControlButton] = []
-        for action, label in labels:
-            button_width = max(int(70 * ui_scale), self.button_font.size(label)[0] + int(24 * ui_scale))
+        for (action, label), button_width in zip(labels, widths):
             rect = pygame.Rect(x, y, button_width, int(28 * ui_scale))
             buttons.append(ControlButton(action=action, label=label, rect=rect, active=action == active_action))
             x += button_width + gap
