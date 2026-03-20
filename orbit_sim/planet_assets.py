@@ -32,3 +32,18 @@ PLANET_TEXTURE_SOURCES = {
         "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20neptune.jpg",
     },
 }
+
+SPECIAL_TEXTURE_SOURCES = {
+    "earth_clouds": {
+        "filename": "earth_clouds.jpg",
+        "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20earth%20clouds.jpg",
+    },
+    "earth_night": {
+        "filename": "earth_night.jpg",
+        "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20earth%20nightmap.jpg",
+    },
+    "saturn_ring_alpha": {
+        "filename": "saturn_ring_alpha.png",
+        "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20saturn%20ring%20alpha.png",
+    },
+}

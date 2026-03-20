@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from orbit_sim.planet_assets import PLANET_TEXTURE_SOURCES
+from orbit_sim.planet_assets import PLANET_TEXTURE_SOURCES, SPECIAL_TEXTURE_SOURCES
 
 
 def main() -> None:
@@ -22,9 +22,10 @@ def main() -> None:
 
     output_dir = Path("assets/planets")
     output_dir.mkdir(parents=True, exist_ok=True)
-    selected_names = set(args.names or PLANET_TEXTURE_SOURCES.keys())
+    all_sources = {**PLANET_TEXTURE_SOURCES, **SPECIAL_TEXTURE_SOURCES}
+    selected_names = set(args.names or all_sources.keys())
 
-    for name, config in PLANET_TEXTURE_SOURCES.items():
+    for name, config in all_sources.items():
         if name not in selected_names:
             continue
 
