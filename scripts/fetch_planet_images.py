@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import shutil
 import sys
-from urllib.request import urlretrieve
+from urllib.request import Request, urlopen
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -27,7 +28,9 @@ def main() -> None:
             continue
 
         print(f"fetch {name}: {config['url']}")
-        urlretrieve(config["url"], output_path)
+        request = Request(config["url"], headers={"User-Agent": "GravityStudio/1.0"})
+        with urlopen(request) as response, output_path.open("wb") as output_file:
+            shutil.copyfileobj(response, output_file)
 
 
 if __name__ == "__main__":
