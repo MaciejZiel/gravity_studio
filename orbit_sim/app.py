@@ -174,7 +174,7 @@ class GravityStudioApp:
     def render(self) -> None:
         local_now = datetime.now().astimezone()
         self.screen.fill(SPACE_COLOR)
-        self.star_field.draw(self.screen, self.elapsed_time)
+        self.star_field.draw(self.screen, self.elapsed_time, self.camera.background_parallax)
         self.scene_renderer.draw(
             self.screen,
             self.camera,

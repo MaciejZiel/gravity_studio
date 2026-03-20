@@ -75,6 +75,11 @@ class SolarCamera:
     def scene_label(self) -> str:
         return self._scene_preset.label
 
+    @property
+    def background_parallax(self) -> Vector2:
+        base = self._base_scene_center(self._scene_preset)
+        return (self.current_center - base) * 0.22
+
     def adjust_zoom(self, delta: float) -> None:
         self.target_user_zoom = max(0.72, min(2.45, self.target_user_zoom + delta))
 
