@@ -5,6 +5,7 @@ import sys
 import pygame
 from pygame import Vector2
 
+from orbit_sim.background import StarField
 from orbit_sim.config import (
     SPACE_COLOR,
     SPACE_HAZE,
@@ -27,7 +28,9 @@ class GravityStudioApp:
         self.title_font = pygame.font.SysFont("segoeui", 24)
         self.caption_font = pygame.font.SysFont("segoeui", 14)
         self.scene_center = Vector2(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] / 2)
+        self.star_field = StarField(WINDOW_SIZE)
         self.simulation = OrbitalSimulation()
+        self.elapsed_time = 0.0
         self.running = True
 
     def run(self) -> None:
@@ -46,10 +49,12 @@ class GravityStudioApp:
                 self.running = False
 
     def update(self, dt: float) -> None:
+        self.elapsed_time += dt
         self.simulation.update(dt)
 
     def render(self) -> None:
         self.screen.fill(SPACE_COLOR)
+        self.star_field.draw(self.screen, self.elapsed_time)
         self.draw_space_haze()
         self.draw_orbits()
         self.draw_star()
