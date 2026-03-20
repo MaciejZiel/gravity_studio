@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from math import radians, tau
+from math import atan2, radians, tau
 
 from orbit_sim.models import CelestialBody, MoonBody
 from orbit_sim.satellites import MAJOR_MOONS, MoonDefinition
@@ -38,6 +38,8 @@ class OrbitalSimulation:
         self.live_mode = False
         self.bodies = self._default_bodies()
         self.moons = self._default_moons()
+        self._alignment_cache_anchor: date | None = None
+        self._alignment_cache: TimelineBookmark | None = None
         self._sync_body_angles()
 
     def update(self, dt: float) -> None:
@@ -51,6 +53,8 @@ class OrbitalSimulation:
         self.live_mode = False
         self.bodies = self._default_bodies()
         self.moons = self._default_moons()
+        self._alignment_cache_anchor = None
+        self._alignment_cache = None
         self._sync_body_angles()
 
     @property
@@ -110,8 +114,10 @@ class OrbitalSimulation:
 
     def bookmarks(self) -> list[TimelineBookmark]:
         current_year = self.current_datetime().year
+        next_alignment = self._next_alignment_bookmark()
         return [
             TimelineBookmark("jump_now", "Now", datetime.now().replace(microsecond=0), "Match the current live heliocentric arrangement."),
+            next_alignment,
             TimelineBookmark("jump_equinox", "Equinox", datetime(current_year, 3, 20, 12, 0, 0), "Solar illumination crosses Earth's equator evenly.", "Earth"),
             TimelineBookmark("jump_solstice", "Solstice", datetime(current_year, 6, 21, 12, 0, 0), "Earth's axial tilt is at a seasonal extreme.", "Earth"),
             TimelineBookmark("jump_eclipse", "Eclipse Season", datetime(2024, 4, 8, 18, 18, 0), "The Sun, Moon and Earth line up for the 2024 total solar eclipse.", "Earth"),
@@ -187,3 +193,52 @@ class OrbitalSimulation:
             body.angle = body.starting_angle + body.angular_speed * self.simulation_days
         for moon in self.moons:
             moon.angle = moon.starting_angle + moon.angular_speed * self.simulation_days
+
+    def _next_alignment_bookmark(self) -> TimelineBookmark:
+        anchor_date = self.current_datetime().date()
+        if self._alignment_cache_anchor == anchor_date and self._alignment_cache is not None:
+            return self._alignment_cache
+
+        anchor_moment = datetime.combine(anchor_date, datetime.min.time())
+        best_moment = anchor_moment
+        best_span = 360.0
+        for day_offset in range(1, 731, 2):
+            candidate = anchor_moment + timedelta(days=day_offset)
+            longitudes = self._alignment_longitudes(candidate)
+            span = max(longitudes) - min(longitudes)
+            if span > 180.0:
+                wrapped = sorted(longitudes)
+                largest_gap = max(
+                    (wrapped[(index + 1) % len(wrapped)] - wrapped[index]) % 360.0
+                    for index in range(len(wrapped))
+                )
+                span = 360.0 - largest_gap
+            if span < best_span:
+                best_span = span
+                best_moment = candidate
+
+        self._alignment_cache_anchor = anchor_date
+        self._alignment_cache = TimelineBookmark(
+            "jump_alignment",
+            "Next Alignment",
+            best_moment.replace(hour=12),
+            "A compact grouping of the bright planets in Earth's sky.",
+            "Venus",
+        )
+        return self._alignment_cache
+
+    def _alignment_longitudes(self, moment: datetime) -> list[float]:
+        days = (moment - self.epoch).total_seconds() / 86400.0
+        earth = self._body_position_at(self.body_named("Earth"), days)
+        targets = ["Mercury", "Venus", "Mars", "Jupiter", "Saturn"]
+        longitudes = []
+        for name in targets:
+            body = self.body_named(name)
+            vector = self._body_position_at(body, days) - earth
+            longitudes.append((atan2(vector.y, vector.x) * 180.0 / 3.141592653589793 + 360.0) % 360.0)
+        return longitudes
+
+    def _body_position_at(self, body: CelestialBody | None, simulation_days: float):
+        if body is None:
+            return type(self.bodies[0].orbital_position())()
+        return body.orbital_position(body.starting_angle + body.angular_speed * simulation_days)
