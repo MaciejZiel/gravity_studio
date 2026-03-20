@@ -16,6 +16,7 @@ from orbit_sim.config import (
 )
 from orbit_sim.models import CelestialBody
 from orbit_sim.rendering import SceneRenderer
+from orbit_sim.settings import StudioSettings, StudioSettingsStore
 from orbit_sim.simulation import OrbitalSimulation
 from orbit_sim.ui import ControlBar, DateShortcutStrip, FocusBadge, HudChrome, InfoPanel, SceneStrip, TimelineStrip
 
@@ -24,10 +25,15 @@ class GravityStudioApp:
     def __init__(self) -> None:
         pygame.init()
         pygame.display.set_caption("Gravity Studio: Solar System")
+        self.settings_store = StudioSettingsStore(Path.cwd())
+        self.settings = self.settings_store.load()
         self.viewport = self._detect_viewport()
         self.screen = self._create_display_surface()
         self.clock = pygame.time.Clock()
         self.camera = SolarCamera(self.viewport)
+        if self.settings.scale_mode == "expanded":
+            self.camera.toggle_scale_mode()
+        self.camera.set_scene(self.settings.last_scene)
         self.star_field = StarField(self.viewport)
         self.simulation = OrbitalSimulation()
         self.hud = HudChrome()
@@ -44,9 +50,9 @@ class GravityStudioApp:
         self.panel_body: CelestialBody | None = None
         self.panel_visibility = 0.0
         self.hovered_action: str | None = None
-        self.show_orbits = True
-        self.show_labels = True
-        self.ui_hidden = False
+        self.show_orbits = self.settings.show_orbits
+        self.show_labels = self.settings.show_labels
+        self.ui_hidden = self.settings.ui_hidden
         self.notification_text: str | None = None
         self.notification_timer = 0.0
         self.focus_rotation_offset = 0.0
@@ -96,6 +102,7 @@ class GravityStudioApp:
             self.render()
 
         pygame.quit()
+        self.persist_settings()
         sys.exit(0)
 
     def handle_events(self) -> None:
@@ -322,6 +329,7 @@ class GravityStudioApp:
             self.simulation.jump_to_bookmark(action)
             if action == "jump_now":
                 self.paused = False
+        self.persist_settings()
 
     def handle_keydown(self, event: pygame.event.Event) -> None:
         if event.key == pygame.K_SPACE:
@@ -449,3 +457,14 @@ class GravityStudioApp:
             self.focus_rotation_offset,
         )
         return capture_surface
+
+    def persist_settings(self) -> None:
+        self.settings = StudioSettings(
+            show_orbits=self.show_orbits,
+            show_labels=self.show_labels,
+            scale_mode=self.camera.scale_mode,
+            last_scene=self.camera.scene_mode,
+            ui_hidden=self.ui_hidden,
+            master_volume=self.settings.master_volume,
+        )
+        self.settings_store.save(self.settings)
