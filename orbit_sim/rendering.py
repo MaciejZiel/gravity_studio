@@ -8,6 +8,7 @@ from pygame import Vector2
 from orbit_sim.camera import SolarCamera
 from orbit_sim.config import SPACE_HAZE, STAR_CORE, STAR_GLOW
 from orbit_sim.models import CelestialBody
+from orbit_sim.planet_sphere import SpinningPlanetRenderer
 
 
 class SceneRenderer:
@@ -15,6 +16,7 @@ class SceneRenderer:
         self.label_scale = 0.0
         self.label_font: pygame.font.Font | None = None
         self.selected_label_font: pygame.font.Font | None = None
+        self.focus_renderer = SpinningPlanetRenderer()
 
     def draw(
         self,
@@ -22,6 +24,7 @@ class SceneRenderer:
         camera: SolarCamera,
         bodies: list[CelestialBody],
         elapsed_time: float,
+        simulation_days: float,
         hovered_body: CelestialBody | None,
         selected_body: CelestialBody | None,
         show_orbits: bool,
@@ -37,6 +40,8 @@ class SceneRenderer:
             self.draw_labels(surface, camera, bodies, selected_body)
         if camera.scene_mode == "focus" and selected_body is not None:
             self.draw_focus_vignette(surface, camera, selected_body)
+        if selected_body is not None and self._should_draw_focus_closeup(camera):
+            self.draw_focus_closeup(surface, camera, selected_body, simulation_days)
 
     def draw_space_haze(self, surface: pygame.Surface, zoom: float) -> None:
         size = surface.get_size()
@@ -346,6 +351,53 @@ class SceneRenderer:
 
         surface.blit(overlay, (0, 0))
 
+    def draw_focus_closeup(
+        self,
+        surface: pygame.Surface,
+        camera: SolarCamera,
+        selected_body: CelestialBody,
+        simulation_days: float,
+    ) -> None:
+        viewport_min = min(surface.get_width(), surface.get_height())
+        base_diameter = viewport_min * (0.24 if camera.scene_mode == "focus" else 0.18)
+        zoom_lift = max(0.0, camera.zoom - 1.0) * viewport_min * 0.03
+        diameter = int(max(180, min(viewport_min * 0.34, base_diameter + zoom_lift)))
+        hero_center = Vector2(surface.get_width() * 0.24, surface.get_height() * 0.57)
+        hero_rect = pygame.Rect(0, 0, diameter, diameter)
+        hero_rect.center = self._point(hero_center)
+
+        shadow = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)
+        shadow_rect = shadow.get_rect(center=hero_rect.center)
+        pygame.draw.circle(
+            shadow,
+            (0, 0, 0, 98),
+            (shadow.get_width() // 2, shadow.get_height() // 2 + int(diameter * 0.09)),
+            int(diameter * 0.48),
+        )
+        surface.blit(shadow, shadow_rect.topleft, special_flags=pygame.BLEND_ALPHA_SDL2)
+
+        sphere_surface = self.focus_renderer.render(selected_body, diameter, simulation_days)
+        if sphere_surface is not None:
+            glow = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)
+            pygame.draw.circle(
+                glow,
+                (*selected_body.color, 18),
+                (glow.get_width() // 2, glow.get_height() // 2),
+                int(diameter * 0.62),
+            )
+            surface.blit(glow, glow.get_rect(center=hero_rect.center).topleft, special_flags=pygame.BLEND_ALPHA_SDL2)
+            if selected_body.has_rings:
+                self._draw_saturn_rings(surface, hero_rect.center, diameter // 2, front=False)
+            surface.blit(sphere_surface, hero_rect.topleft)
+            if selected_body.has_rings:
+                self._draw_saturn_rings(surface, hero_rect.center, diameter // 2, front=True)
+        else:
+            fallback_surface = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)
+            center = Vector2(fallback_surface.get_width() / 2, fallback_surface.get_height() / 2)
+            light_vector = Vector2(-0.75, -0.28).normalize()
+            self._draw_planet_sprite(fallback_surface, center, diameter // 2, selected_body, light_vector)
+            surface.blit(fallback_surface, fallback_surface.get_rect(center=hero_rect.center))
+
     def _draw_solar_corona(
         self,
         surface: pygame.Surface,
@@ -383,6 +435,9 @@ class SceneRenderer:
             granule_radius = max(2, int(radius * (0.08 + 0.03 * sin(index + elapsed_time * 0.3))))
             color = (255, 243, 214, 34 + (index % 4) * 14)
             pygame.draw.circle(surface, color, self._point(granule_center), granule_radius)
+
+    def _should_draw_focus_closeup(self, camera: SolarCamera) -> bool:
+        return camera.scene_mode == "focus" or camera.zoom >= 1.65
 
     def draw_labels(
         self,

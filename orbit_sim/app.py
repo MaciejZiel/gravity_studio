@@ -159,6 +159,7 @@ class GravityStudioApp:
             self.camera,
             self.simulation.bodies,
             self.elapsed_time,
+            self.simulation.simulation_days,
             self.hovered_body,
             self.selected_body,
             self.show_orbits,
