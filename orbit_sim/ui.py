@@ -197,7 +197,7 @@ class HudChrome:
         hint = render_cached(
             self._text_cache,
             self.meta_font,
-            "Q/W/E scenes, 1-4 time, H hide UI, P capture, click to focus.",
+            "Q/W/E/G scenes, T/Y tours, D presentation, M missions, K sky, S story scale.",
             (88, 100, 120),
         )
 
