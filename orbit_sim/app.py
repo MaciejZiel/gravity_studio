@@ -18,6 +18,7 @@ from orbit_sim.config import (
 )
 from orbit_sim.models import CelestialBody
 from orbit_sim.simulation import OrbitalSimulation
+from orbit_sim.ui import InfoPanel
 
 
 class GravityStudioApp:
@@ -31,9 +32,12 @@ class GravityStudioApp:
         self.scene_center = Vector2(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] / 2)
         self.star_field = StarField(WINDOW_SIZE)
         self.simulation = OrbitalSimulation()
+        self.info_panel = InfoPanel()
         self.elapsed_time = 0.0
         self.hovered_body: CelestialBody | None = None
         self.selected_body: CelestialBody | None = None
+        self.panel_body: CelestialBody | None = None
+        self.panel_visibility = 0.0
         self.running = True
 
     def run(self) -> None:
@@ -57,6 +61,13 @@ class GravityStudioApp:
         self.elapsed_time += dt
         self.simulation.update(dt)
         self.hovered_body = self.body_at_screen_position(Vector2(pygame.mouse.get_pos()))
+        if self.selected_body is not None:
+            self.panel_body = self.selected_body
+
+        target_visibility = 1.0 if self.selected_body else 0.0
+        self.panel_visibility += (target_visibility - self.panel_visibility) * min(1.0, dt * 10.0)
+        if self.selected_body is None and self.panel_visibility < 0.02:
+            self.panel_body = None
 
     def render(self) -> None:
         self.screen.fill(SPACE_COLOR)
@@ -66,6 +77,7 @@ class GravityStudioApp:
         self.draw_star()
         self.draw_planets()
         self.draw_heading()
+        self.draw_info_panel()
         pygame.display.flip()
 
     def draw_space_haze(self) -> None:
@@ -142,3 +154,7 @@ class GravityStudioApp:
                 return body
 
         return None
+
+    def draw_info_panel(self) -> None:
+        if self.panel_body is not None and self.panel_visibility > 0.01:
+            self.info_panel.draw(self.screen, self.panel_body, self.panel_visibility)
