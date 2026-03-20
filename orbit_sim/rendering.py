@@ -370,8 +370,13 @@ class SceneRenderer:
         bodies: list[CelestialBody],
         selected_body: CelestialBody | None,
     ) -> None:
+        label_layer = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
         sun_center = camera.layout.scene_center
         for body in bodies:
+            alpha = self._label_alpha(body, camera, selected_body)
+            if alpha <= 0:
+                continue
+
             planet_position = camera.body_position(body)
             direction = body.direction()
             planet_radius = camera.planet_radius(body)
@@ -379,6 +384,7 @@ class SceneRenderer:
             font = self.selected_label_font if body is selected_body else self.label_font
             color = (226, 231, 237) if body is selected_body else (142, 150, 163)
             label_surface = font.render(body.name, True, color)
+            label_surface.set_alpha(alpha)
 
             if anchor.x >= sun_center.x:
                 label_position = (int(anchor.x + 6 * camera.layout.ui_scale), int(anchor.y - label_surface.get_height() / 2))
@@ -390,8 +396,10 @@ class SceneRenderer:
                 )
                 line_end = (label_position[0] + label_surface.get_width() + int(4 * camera.layout.ui_scale), int(anchor.y))
 
-            pygame.draw.line(surface, (94, 104, 120), self._point(planet_position), line_end, 1)
-            surface.blit(label_surface, label_position)
+            pygame.draw.line(label_layer, (94, 104, 120, alpha), self._point(planet_position), line_end, 1)
+            label_layer.blit(label_surface, label_position)
+
+        surface.blit(label_layer, (0, 0))
 
     def _ensure_fonts(self, ui_scale: float) -> None:
         if abs(ui_scale - self.label_scale) < 0.01:
@@ -400,3 +408,29 @@ class SceneRenderer:
         self.label_scale = ui_scale
         self.label_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
         self.selected_label_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)), bold=True)
+
+    def _label_alpha(
+        self,
+        body: CelestialBody,
+        camera: SolarCamera,
+        selected_body: CelestialBody | None,
+    ) -> int:
+        if body is selected_body:
+            return 255
+
+        if camera.scene_mode == "focus":
+            return 0
+
+        if camera.scene_mode == "inner_worlds":
+            return 210 if body.name in {"Mercury", "Venus", "Earth", "Mars"} else 0
+
+        if camera.scene_mode == "outer_worlds":
+            return 210 if body.name in {"Jupiter", "Saturn", "Uranus", "Neptune"} else 0
+
+        if camera.zoom < 1.08:
+            return 190 if body.name in {"Earth", "Mars", "Jupiter", "Saturn", "Neptune"} else 0
+
+        if camera.zoom < 1.28:
+            return 190 if body.name != "Mercury" else 0
+
+        return 210
