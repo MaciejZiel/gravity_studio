@@ -586,11 +586,20 @@ class SceneRenderer:
         )
         if sphere_surface is not None:
             glow = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)
+            glow_center = Vector2(glow.get_width() / 2, glow.get_height() / 2)
+            for radius_factor, alpha in ((0.66, 10), (0.58, 14), (0.48, 18)):
+                pygame.draw.circle(
+                    glow,
+                    (*selected_body.color, alpha),
+                    self._point(glow_center),
+                    int(diameter * radius_factor),
+                )
+            flare_center = glow_center + Vector2(-diameter * 0.12, -diameter * 0.08)
             pygame.draw.circle(
                 glow,
-                (*selected_body.color, 18),
-                (glow.get_width() // 2, glow.get_height() // 2),
-                int(diameter * 0.62),
+                (*selected_body.accent_color, 20 if selected_body.name in {"Earth", "Venus", "Neptune"} else 12),
+                self._point(flare_center),
+                int(diameter * 0.38),
             )
             surface.blit(glow, glow.get_rect(center=hero_rect.center).topleft, special_flags=pygame.BLEND_ALPHA_SDL2)
             if selected_body.has_rings:
