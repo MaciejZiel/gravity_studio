@@ -71,6 +71,7 @@ class GravityStudioApp:
                     self.handle_action(action)
                 else:
                     self.selected_body = self.body_at_screen_position(Vector2(event.pos))
+                    self.camera.set_focus_body(self.selected_body)
             elif event.type == pygame.MOUSEWHEEL:
                 self.camera.adjust_zoom(event.y * 0.08)
 
@@ -78,7 +79,7 @@ class GravityStudioApp:
         self.elapsed_time += dt
         if not self.paused:
             self.simulation.update(dt)
-        self.camera.update(dt)
+        self.camera.update(dt, self.elapsed_time)
         self.control_buttons = self.control_bar.build_buttons(
             *self.viewport,
             self.camera.layout.ui_scale,
@@ -153,8 +154,7 @@ class GravityStudioApp:
             self.camera.toggle_scale_mode()
         elif action == "reset":
             self.simulation.reset()
-            self.camera.zoom = 1.0
-            self.camera.target_zoom = 1.0
+            self.camera.reset()
             self.paused = False
             self.selected_body = None
             self.panel_body = None
