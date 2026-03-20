@@ -21,7 +21,7 @@ from orbit_sim.ui import ControlBar, HudChrome, InfoPanel
 class GravityStudioApp:
     def __init__(self) -> None:
         pygame.init()
-        pygame.display.set_caption("Gravity Studio")
+        pygame.display.set_caption("Gravity Studio: Solar System")
         self.viewport = self._detect_viewport()
         self.screen = self._create_display_surface()
         self.clock = pygame.time.Clock()

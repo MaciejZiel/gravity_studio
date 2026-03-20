@@ -1,16 +1,17 @@
-# Gravity Studio
+# Gravity Studio: Solar System
 
-A premium-styled orbital simulation MVP built with Python and Pygame.
+A fullscreen, astronomy-inspired Solar System visualization built with Python and Pygame.
 
 ## Features
 
-- Central star with layered glow and subtle pulse
-- Multiple planets with distinct size, speed, orbit radius, and material treatment
-- Elegant orbit rings and procedural background star field
-- Click selection with a floating info card
-- Smooth mouse-wheel zoom
-- Pause/resume, reset, and add-planet controls
-- Clean modular structure for simulation, rendering, and UI
+- Fullscreen launch with responsive scaling for large displays
+- Real Solar System dataset with the Sun and all 8 planets in correct order
+- Compressed but realistic-inspired orbit scaling for readability
+- Minimal orbit lines, restrained solar glow, and subdued planet rendering
+- Saturn ring rendering with separate front and back layers
+- Planet labels, zoom, pause/resume, orbit toggle, label toggle, and scale mode toggle
+- Selected planet info card with radius, distance, orbital period, and a short fact
+- Modular separation between data, simulation, camera, rendering, background, and UI
 
 ## Run locally
 
@@ -31,15 +32,19 @@ python -m orbit_sim
 
 - `Left click`: select a planet
 - `Mouse wheel`: zoom in or out
-- `Add Planet`: append a new stylized body to the system
 - `Pause` / `Resume`: stop or continue orbital motion
+- `Orbits`: show or hide orbit lines
+- `Labels`: show or hide planet labels
+- `Scale`: switch between compressed and expanded distance scaling
 - `Reset`: restore the original system state
 
 ## Project layout
 
 - `main.py`: simple desktop entry point
 - `orbit_sim/app.py`: app orchestration and input flow
-- `orbit_sim/simulation.py`: orbital state and planet generation
+- `orbit_sim/solar_system.py`: Solar System dataset and planet metadata
+- `orbit_sim/simulation.py`: orbital motion state
+- `orbit_sim/camera.py`: responsive scene layout, zoom, and distance scaling
 - `orbit_sim/rendering.py`: scene rendering
 - `orbit_sim/ui.py`: info panel, HUD, and controls
 - `orbit_sim/background.py`: procedural star field
