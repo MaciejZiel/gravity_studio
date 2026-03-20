@@ -29,6 +29,7 @@ class SceneRenderer:
         selected_body: CelestialBody | None,
         show_orbits: bool,
         show_labels: bool,
+        focus_rotation_offset: float = 0.0,
     ) -> None:
         self._ensure_fonts(camera.layout.ui_scale)
         self.draw_space_haze(surface, camera.zoom)
@@ -41,7 +42,7 @@ class SceneRenderer:
         if camera.scene_mode == "focus" and selected_body is not None:
             self.draw_focus_vignette(surface, camera, selected_body)
         if selected_body is not None and self._should_draw_focus_closeup(camera):
-            self.draw_focus_closeup(surface, camera, selected_body, simulation_days)
+            self.draw_focus_closeup(surface, camera, selected_body, simulation_days, focus_rotation_offset)
 
     def draw_space_haze(self, surface: pygame.Surface, zoom: float) -> None:
         size = surface.get_size()
@@ -357,14 +358,13 @@ class SceneRenderer:
         camera: SolarCamera,
         selected_body: CelestialBody,
         simulation_days: float,
+        focus_rotation_offset: float,
     ) -> None:
-        viewport_min = min(surface.get_width(), surface.get_height())
-        base_diameter = viewport_min * (0.24 if camera.scene_mode == "focus" else 0.18)
-        zoom_lift = max(0.0, camera.zoom - 1.0) * viewport_min * 0.03
-        diameter = int(max(180, min(viewport_min * 0.34, base_diameter + zoom_lift)))
-        hero_center = Vector2(surface.get_width() * 0.24, surface.get_height() * 0.57)
-        hero_rect = pygame.Rect(0, 0, diameter, diameter)
-        hero_rect.center = self._point(hero_center)
+        hero_rect = self.focus_closeup_rect(surface.get_size(), camera)
+        if hero_rect is None:
+            return
+
+        diameter = hero_rect.width
 
         shadow = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)
         shadow_rect = shadow.get_rect(center=hero_rect.center)
@@ -376,7 +376,12 @@ class SceneRenderer:
         )
         surface.blit(shadow, shadow_rect.topleft, special_flags=pygame.BLEND_ALPHA_SDL2)
 
-        sphere_surface = self.focus_renderer.render(selected_body, diameter, simulation_days)
+        sphere_surface = self.focus_renderer.render(
+            selected_body,
+            diameter,
+            simulation_days,
+            rotation_offset_degrees=focus_rotation_offset,
+        )
         if sphere_surface is not None:
             glow = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)
             pygame.draw.circle(
@@ -397,6 +402,19 @@ class SceneRenderer:
             light_vector = Vector2(-0.75, -0.28).normalize()
             self._draw_planet_sprite(fallback_surface, center, diameter // 2, selected_body, light_vector)
             surface.blit(fallback_surface, fallback_surface.get_rect(center=hero_rect.center))
+
+    def focus_closeup_rect(self, surface_size: tuple[int, int], camera: SolarCamera) -> pygame.Rect | None:
+        if not self._should_draw_focus_closeup(camera):
+            return None
+
+        viewport_min = min(surface_size)
+        base_diameter = viewport_min * (0.24 if camera.scene_mode == "focus" else 0.18)
+        zoom_lift = max(0.0, camera.zoom - 1.0) * viewport_min * 0.03
+        diameter = int(max(180, min(viewport_min * 0.34, base_diameter + zoom_lift)))
+        hero_center = Vector2(surface_size[0] * 0.24, surface_size[1] * 0.57)
+        hero_rect = pygame.Rect(0, 0, diameter, diameter)
+        hero_rect.center = self._point(hero_center)
+        return hero_rect
 
     def _draw_solar_corona(
         self,
