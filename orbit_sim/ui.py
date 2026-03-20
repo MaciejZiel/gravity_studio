@@ -123,6 +123,7 @@ class HudChrome:
         self.title_font: pygame.font.Font | None = None
         self.subtitle_font: pygame.font.Font | None = None
         self.meta_font: pygame.font.Font | None = None
+        self.note_font: pygame.font.Font | None = None
 
     def draw(self, surface: pygame.Surface, paused: bool, zoom: float, scale_mode: str, ui_scale: float) -> None:
         self._ensure_fonts(ui_scale)
@@ -149,6 +150,21 @@ class HudChrome:
         self.title_font = pygame.font.SysFont("segoeui", max(20, int(28 * ui_scale)), bold=True)
         self.subtitle_font = pygame.font.SysFont("segoeui", max(13, int(15 * ui_scale)))
         self.meta_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
+        self.note_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)), bold=True)
+
+    def draw_notification(self, surface: pygame.Surface, text: str, timer: float, ui_scale: float) -> None:
+        self._ensure_fonts(ui_scale)
+        alpha = max(0, min(255, int(255 * min(1.0, timer))))
+        label_surface = self.note_font.render(text, True, (230, 235, 242))
+        padding_x = int(18 * ui_scale)
+        padding_y = int(12 * ui_scale)
+        width = label_surface.get_width() + padding_x * 2
+        height = label_surface.get_height() + padding_y * 2
+        panel = pygame.Surface((width, height), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (10, 14, 22, int(alpha * 0.92)), panel.get_rect(), border_radius=int(16 * ui_scale))
+        pygame.draw.rect(panel, (66, 74, 88, int(alpha * 0.95)), panel.get_rect(), width=1, border_radius=int(16 * ui_scale))
+        panel.blit(label_surface, (padding_x, padding_y))
+        surface.blit(panel, (surface.get_width() - width - int(36 * ui_scale), surface.get_height() - height - int(32 * ui_scale)))
 
 
 class ControlBar:

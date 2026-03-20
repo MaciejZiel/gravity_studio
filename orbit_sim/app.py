@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime
+from pathlib import Path
 
 import pygame
 from pygame import Vector2
@@ -40,6 +42,9 @@ class GravityStudioApp:
         self.hovered_action: str | None = None
         self.show_orbits = True
         self.show_labels = True
+        self.ui_hidden = False
+        self.notification_text: str | None = None
+        self.notification_timer = 0.0
         self.control_buttons = self.control_bar.build_buttons(
             *self.viewport,
             self.camera.layout.ui_scale,
@@ -74,6 +79,8 @@ class GravityStudioApp:
                     self.camera.set_focus_body(self.selected_body)
             elif event.type == pygame.MOUSEWHEEL:
                 self.camera.adjust_zoom(event.y * 0.08)
+            elif event.type == pygame.KEYDOWN:
+                self.handle_keydown(event)
 
     def update(self, dt: float) -> None:
         self.elapsed_time += dt
@@ -97,6 +104,10 @@ class GravityStudioApp:
         self.panel_visibility += (target_visibility - self.panel_visibility) * min(1.0, dt * 10.0)
         if self.selected_body is None and self.panel_visibility < 0.02:
             self.panel_body = None
+        if self.notification_timer > 0.0:
+            self.notification_timer = max(0.0, self.notification_timer - dt)
+            if self.notification_timer == 0.0:
+                self.notification_text = None
 
     def render(self) -> None:
         self.screen.fill(SPACE_COLOR)
@@ -111,9 +122,11 @@ class GravityStudioApp:
             self.show_orbits,
             self.show_labels,
         )
-        self.draw_hud()
-        self.draw_info_panel()
-        self.draw_controls()
+        if not self.ui_hidden:
+            self.draw_hud()
+            self.draw_info_panel()
+            self.draw_controls()
+        self.draw_notification()
         pygame.display.flip()
 
     def body_screen_position(self, body: CelestialBody) -> Vector2:
@@ -152,6 +165,16 @@ class GravityStudioApp:
             self.show_labels = not self.show_labels
         elif action == "toggle_scale":
             self.camera.toggle_scale_mode()
+        elif action == "scene_system":
+            self.camera.set_scene("full_system")
+        elif action == "scene_inner":
+            self.camera.set_scene("inner_worlds")
+        elif action == "scene_outer":
+            self.camera.set_scene("outer_worlds")
+        elif action == "scene_focus" and self.selected_body is not None:
+            self.camera.set_focus_body(self.selected_body)
+        elif action.startswith("speed_"):
+            self.simulation.set_time_speed_index(int(action.rsplit("_", 1)[1]))
         elif action == "reset":
             self.simulation.reset()
             self.camera.reset()
@@ -159,6 +182,49 @@ class GravityStudioApp:
             self.selected_body = None
             self.panel_body = None
             self.panel_visibility = 0.0
+
+    def handle_keydown(self, event: pygame.event.Event) -> None:
+        if event.key == pygame.K_SPACE:
+            self.handle_action("toggle_pause")
+        elif event.key == pygame.K_o:
+            self.handle_action("toggle_orbits")
+        elif event.key == pygame.K_l:
+            self.handle_action("toggle_labels")
+        elif event.key == pygame.K_h:
+            self.ui_hidden = not self.ui_hidden
+        elif event.key == pygame.K_p:
+            self.capture_screenshot()
+        elif event.key == pygame.K_f and self.selected_body is not None:
+            self.handle_action("scene_focus")
+        elif event.key == pygame.K_1:
+            self.handle_action("speed_0")
+        elif event.key == pygame.K_2:
+            self.handle_action("speed_1")
+        elif event.key == pygame.K_3:
+            self.handle_action("speed_2")
+        elif event.key == pygame.K_4:
+            self.handle_action("speed_3")
+        elif event.key == pygame.K_q:
+            self.handle_action("scene_system")
+        elif event.key == pygame.K_w:
+            self.handle_action("scene_inner")
+        elif event.key == pygame.K_e:
+            self.handle_action("scene_outer")
+
+    def capture_screenshot(self) -> None:
+        screenshot_dir = Path("screenshots")
+        screenshot_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        output_path = screenshot_dir / f"gravity-studio-{timestamp}.png"
+        pygame.image.save(self.screen, output_path)
+        self.notification_text = f"Captured {output_path.name}"
+        self.notification_timer = 2.0
+
+    def draw_notification(self) -> None:
+        if self.notification_text is None:
+            return
+
+        self.hud.draw_notification(self.screen, self.notification_text, self.notification_timer, self.camera.layout.ui_scale)
 
     def _detect_viewport(self) -> tuple[int, int]:
         info = pygame.display.Info()
