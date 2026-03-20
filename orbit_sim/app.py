@@ -209,3 +209,8 @@ class GravityStudioApp:
             self.zoom = 1.0
             self.target_zoom = 1.0
             self.paused = False
+            self.selected_body = None
+            self.panel_body = None
+            self.panel_visibility = 0.0
+        elif action == "add_planet":
+            self.selected_body = self.simulation.add_body()

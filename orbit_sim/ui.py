@@ -65,6 +65,7 @@ class ControlBar:
 
     def build_buttons(self, width: int, height: int, paused: bool) -> list[ControlButton]:
         labels = [
+            ("add_planet", "Add Planet", False),
             ("toggle_pause", "Resume" if paused else "Pause", paused),
             ("reset", "Reset", False),
         ]

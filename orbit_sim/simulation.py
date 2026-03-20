@@ -6,14 +6,21 @@ from orbit_sim.models import CelestialBody
 class OrbitalSimulation:
     def __init__(self) -> None:
         self.bodies = self._default_bodies()
+        self.additional_body_count = 0
 
     def update(self, dt: float) -> None:
         for body in self.bodies:
             body.angle += body.angular_speed * dt
 
     def reset(self) -> None:
-        for body in self.bodies:
-            body.reset()
+        self.bodies = self._default_bodies()
+        self.additional_body_count = 0
+
+    def add_body(self) -> CelestialBody:
+        body = self._generated_body(self.additional_body_count)
+        self.bodies.append(body)
+        self.additional_body_count += 1
+        return body
 
     def _default_bodies(self) -> list[CelestialBody]:
         return [
@@ -68,3 +75,30 @@ class OrbitalSimulation:
                 starting_angle=5.25,
             ),
         ]
+
+    def _generated_body(self, index: int) -> CelestialBody:
+        palette = [
+            ("Lyra", (128, 150, 255), (225, 230, 255)),
+            ("Solace", (255, 133, 179), (255, 221, 234)),
+            ("Tide", (118, 238, 233), (218, 255, 250)),
+            ("Ember", (255, 162, 112), (255, 227, 200)),
+            ("Quartz", (200, 177, 255), (241, 233, 255)),
+        ]
+        name, color, accent = palette[index % len(palette)]
+        last_radius = self.bodies[-1].orbit_radius if self.bodies else 420
+        orbit_radius = last_radius + 74
+        radius = max(10, 18 - (index % 4) * 2)
+        angular_speed = max(0.08, 0.14 - index * 0.012)
+        starting_angle = 0.85 + index * 0.9
+        body_name = f"{name} {index + 1}"
+
+        return CelestialBody(
+            name=body_name,
+            orbit_radius=orbit_radius,
+            radius=radius,
+            angular_speed=angular_speed,
+            color=color,
+            accent_color=accent,
+            angle=starting_angle,
+            starting_angle=starting_angle,
+        )
