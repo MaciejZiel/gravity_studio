@@ -23,6 +23,18 @@ class SliderControl:
     value: float
 
 
+def render_cached(
+    cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface],
+    font: pygame.font.Font,
+    text: str,
+    color: tuple[int, ...],
+) -> pygame.Surface:
+    key = (id(font), text, color)
+    if key not in cache:
+        cache[key] = font.render(text, True, color)
+    return cache[key]
+
+
 class InfoPanel:
     def __init__(self) -> None:
         self.scale = 0.0
@@ -31,6 +43,7 @@ class InfoPanel:
         self.label_font: pygame.font.Font | None = None
         self.value_font: pygame.font.Font | None = None
         self.fact_font: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
 
     def draw(self, surface: pygame.Surface, body: CelestialBody, visibility: float, ui_scale: float) -> None:
         self._ensure_fonts(ui_scale)
@@ -50,8 +63,8 @@ class InfoPanel:
         pygame.draw.rect(panel, (48, 56, 70, int(alpha * 0.9)), panel.get_rect(), width=1, border_radius=int(22 * ui_scale))
 
         pygame.draw.circle(panel, (*body.color, int(alpha * 0.92)), (int(34 * ui_scale), int(34 * ui_scale)), max(5, int(8 * ui_scale)))
-        eyebrow = self.eyebrow_font.render("SELECTED PLANET", True, (150, 160, 178))
-        title = self.title_font.render(body.name, True, (234, 238, 244))
+        eyebrow = render_cached(self._text_cache, self.eyebrow_font, "SELECTED PLANET", (150, 160, 178))
+        title = render_cached(self._text_cache, self.title_font, body.name, (234, 238, 244))
         panel.blit(eyebrow, (int(56 * ui_scale), int(22 * ui_scale)))
         panel.blit(title, (int(24 * ui_scale), int(48 * ui_scale)))
 
@@ -66,17 +79,17 @@ class InfoPanel:
             self._draw_stat_row(panel, label, value, top, ui_scale)
             top += row_gap
 
-        comparison_title = self.label_font.render("Compared with Earth", True, (132, 142, 160))
-        comparison_value = self.fact_font.render(self._comparison_text(body), True, (208, 214, 224))
+        comparison_title = render_cached(self._text_cache, self.label_font, "Compared with Earth", (132, 142, 160))
+        comparison_value = render_cached(self._text_cache, self.fact_font, self._comparison_text(body), (208, 214, 224))
         panel.blit(comparison_title, (int(24 * ui_scale), int(248 * ui_scale)))
         panel.blit(comparison_value, (int(24 * ui_scale), int(268 * ui_scale)))
 
-        fact_title = self.label_font.render("Fact", True, (132, 142, 160))
+        fact_title = render_cached(self._text_cache, self.label_font, "Fact", (132, 142, 160))
         panel.blit(fact_title, (int(24 * ui_scale), int(298 * ui_scale)))
         fact_lines = self._wrap_text(body.fact, self.fact_font, panel_width - int(48 * ui_scale))
         text_y = int(318 * ui_scale)
         for line in fact_lines[:2]:
-            line_surface = self.fact_font.render(line, True, (208, 214, 224))
+            line_surface = render_cached(self._text_cache, self.fact_font, line, (208, 214, 224))
             panel.blit(line_surface, (int(24 * ui_scale), text_y))
             text_y += int(19 * ui_scale)
 
@@ -90,8 +103,8 @@ class InfoPanel:
             (panel.get_width() - int(24 * ui_scale), top - int(10 * ui_scale)),
             1,
         )
-        label_surface = self.label_font.render(label, True, (132, 142, 160))
-        value_surface = self.value_font.render(value, True, (226, 231, 238))
+        label_surface = render_cached(self._text_cache, self.label_font, label, (132, 142, 160))
+        value_surface = render_cached(self._text_cache, self.value_font, value, (226, 231, 238))
         panel.blit(label_surface, (int(24 * ui_scale), top))
         panel.blit(value_surface, (panel.get_width() - value_surface.get_width() - int(24 * ui_scale), top - int(2 * ui_scale)))
 
@@ -131,6 +144,7 @@ class InfoPanel:
             return
 
         self.scale = ui_scale
+        self._text_cache.clear()
         self.eyebrow_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)), bold=True)
         self.title_font = pygame.font.SysFont("segoeui", max(18, int(28 * ui_scale)), bold=True)
         self.label_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)))
@@ -146,6 +160,7 @@ class HudChrome:
         self.meta_font: pygame.font.Font | None = None
         self.note_font: pygame.font.Font | None = None
         self.clock_font: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
 
     def draw(
         self,
@@ -162,15 +177,26 @@ class HudChrome:
     ) -> None:
         self._ensure_fonts(ui_scale)
         margin_x = int(42 * ui_scale)
-        title = self.title_font.render("SOLAR SYSTEM", True, (230, 235, 242))
-        subtitle = self.subtitle_font.render("Astronomy-inspired orbital visualization", True, (124, 136, 156))
+        title = render_cached(self._text_cache, self.title_font, "SOLAR SYSTEM", (230, 235, 242))
+        subtitle = render_cached(
+            self._text_cache,
+            self.subtitle_font,
+            "Astronomy-inspired orbital visualization",
+            (124, 136, 156),
+        )
         status_label = "PAUSED" if paused else ("REAL-TIME" if live_mode else "SIMULATING")
-        meta = self.meta_font.render(
+        meta = render_cached(
+            self._text_cache,
+            self.meta_font,
             f"{status_label}   |   {scene_label.upper()}   |   {time_speed_label}   |   ZOOM {int(zoom * 100)}%   |   SCALE {scale_mode.upper()}",
-            True,
             (106, 118, 140),
         )
-        hint = self.meta_font.render("Q/W/E scenes, 1-4 time, H hide UI, P capture, click to focus.", True, (88, 100, 120))
+        hint = render_cached(
+            self._text_cache,
+            self.meta_font,
+            "Q/W/E scenes, 1-4 time, H hide UI, P capture, click to focus.",
+            (88, 100, 120),
+        )
 
         surface.blit(title, (margin_x, int(34 * ui_scale)))
         surface.blit(subtitle, (margin_x, int(70 * ui_scale)))
@@ -183,6 +209,7 @@ class HudChrome:
             return
 
         self.scale = ui_scale
+        self._text_cache.clear()
         self.title_font = pygame.font.SysFont("segoeui", max(20, int(28 * ui_scale)), bold=True)
         self.subtitle_font = pygame.font.SysFont("segoeui", max(13, int(15 * ui_scale)))
         self.meta_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
@@ -192,7 +219,7 @@ class HudChrome:
     def draw_notification(self, surface: pygame.Surface, text: str, timer: float, ui_scale: float) -> None:
         self._ensure_fonts(ui_scale)
         alpha = max(0, min(255, int(255 * min(1.0, timer))))
-        label_surface = self.note_font.render(text, True, (230, 235, 242))
+        label_surface = render_cached(self._text_cache, self.note_font, text, (230, 235, 242))
         padding_x = int(18 * ui_scale)
         padding_y = int(12 * ui_scale)
         width = label_surface.get_width() + padding_x * 2
@@ -216,9 +243,9 @@ class HudChrome:
         pygame.draw.rect(badge, (8, 12, 19, 214), badge.get_rect(), border_radius=int(18 * ui_scale))
         pygame.draw.rect(badge, (48, 56, 68, 222), badge.get_rect(), width=1, border_radius=int(18 * ui_scale))
 
-        label = self.meta_font.render("LOCAL CLOCK", True, (124, 136, 156))
-        value = self.clock_font.render(local_time_label, True, (232, 236, 241))
-        timezone = self.meta_font.render(timezone_label, True, (110, 120, 138))
+        label = render_cached(self._text_cache, self.meta_font, "LOCAL CLOCK", (124, 136, 156))
+        value = render_cached(self._text_cache, self.clock_font, local_time_label, (232, 236, 241))
+        timezone = render_cached(self._text_cache, self.meta_font, timezone_label, (110, 120, 138))
         badge.blit(label, (int(16 * ui_scale), int(12 * ui_scale)))
         badge.blit(value, (int(16 * ui_scale), int(28 * ui_scale)))
         badge.blit(timezone, (badge_width - timezone.get_width() - int(16 * ui_scale), int(14 * ui_scale)))
@@ -233,6 +260,7 @@ class FocusBadge:
         self.label_font: pygame.font.Font | None = None
         self.value_font: pygame.font.Font | None = None
         self.meta_font: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
 
     def draw(
         self,
@@ -249,8 +277,8 @@ class FocusBadge:
         pygame.draw.rect(panel, (8, 12, 19, 224), panel.get_rect(), border_radius=int(22 * ui_scale))
         pygame.draw.rect(panel, (50, 58, 72, 228), panel.get_rect(), width=1, border_radius=int(22 * ui_scale))
 
-        eyebrow = self.eyebrow_font.render("LIVE CLOSE-UP", True, (138, 148, 166))
-        title = self.title_font.render(body.name, True, (232, 236, 242))
+        eyebrow = render_cached(self._text_cache, self.eyebrow_font, "LIVE CLOSE-UP", (138, 148, 166))
+        title = render_cached(self._text_cache, self.title_font, body.name, (232, 236, 242))
         panel.blit(eyebrow, (int(20 * ui_scale), int(18 * ui_scale)))
         panel.blit(title, (int(20 * ui_scale), int(38 * ui_scale)))
 
@@ -265,7 +293,7 @@ class FocusBadge:
             self._draw_time_row(panel, label, value, top, ui_scale)
             top += int(24 * ui_scale)
 
-        hint = self.meta_font.render("Drag sphere to rotate", True, (112, 124, 144))
+        hint = render_cached(self._text_cache, self.meta_font, "Drag sphere to rotate", (112, 124, 144))
         panel.blit(hint, (int(20 * ui_scale), int(170 * ui_scale)))
 
         x = int(42 * ui_scale)
@@ -273,8 +301,8 @@ class FocusBadge:
         surface.blit(panel, (x, y))
 
     def _draw_time_row(self, panel: pygame.Surface, label: str, value: str, top: int, ui_scale: float) -> None:
-        label_surface = self.label_font.render(label, True, (128, 138, 156))
-        value_surface = self.value_font.render(value, True, (222, 228, 236))
+        label_surface = render_cached(self._text_cache, self.label_font, label, (128, 138, 156))
+        value_surface = render_cached(self._text_cache, self.value_font, value, (222, 228, 236))
         panel.blit(label_surface, (int(20 * ui_scale), top))
         panel.blit(value_surface, (panel.get_width() - value_surface.get_width() - int(20 * ui_scale), top - int(1 * ui_scale)))
 
@@ -283,6 +311,7 @@ class FocusBadge:
             return
 
         self.scale = ui_scale
+        self._text_cache.clear()
         self.eyebrow_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)), bold=True)
         self.title_font = pygame.font.SysFont("segoeui", max(20, int(24 * ui_scale)), bold=True)
         self.label_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
@@ -299,6 +328,7 @@ class ControlBar:
     def __init__(self) -> None:
         self.scale = 0.0
         self.button_font: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
 
     def build_buttons(
         self,
@@ -384,7 +414,7 @@ class ControlBar:
             button_surface = pygame.Surface(button.rect.size, pygame.SRCALPHA)
             pygame.draw.rect(button_surface, fill, button_surface.get_rect(), border_radius=int(14 * ui_scale))
             pygame.draw.rect(button_surface, border, button_surface.get_rect(), width=1, border_radius=int(14 * ui_scale))
-            label_surface = self.button_font.render(button.label, True, text_color)
+            label_surface = render_cached(self._text_cache, self.button_font, button.label, text_color)
             label_rect = label_surface.get_rect(center=button_surface.get_rect().center)
             button_surface.blit(label_surface, label_rect)
             surface.blit(button_surface, button.rect.topleft)
@@ -394,6 +424,7 @@ class ControlBar:
             return
 
         self.scale = ui_scale
+        self._text_cache.clear()
         self.button_font = pygame.font.SysFont("segoeui", max(12, int(14 * ui_scale)), bold=True)
 
 
@@ -401,6 +432,7 @@ class SceneStrip:
     def __init__(self) -> None:
         self.scale = 0.0
         self.button_font: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
 
     def build_buttons(
         self,
@@ -443,7 +475,7 @@ class SceneStrip:
             button_surface = pygame.Surface(button.rect.size, pygame.SRCALPHA)
             pygame.draw.rect(button_surface, fill, button_surface.get_rect(), border_radius=int(14 * ui_scale))
             pygame.draw.rect(button_surface, border, button_surface.get_rect(), width=1, border_radius=int(14 * ui_scale))
-            label_surface = self.button_font.render(button.label, True, (224, 229, 237))
+            label_surface = render_cached(self._text_cache, self.button_font, button.label, (224, 229, 237))
             label_rect = label_surface.get_rect(center=button_surface.get_rect().center)
             button_surface.blit(label_surface, label_rect)
             surface.blit(button_surface, button.rect.topleft)
@@ -453,6 +485,7 @@ class SceneStrip:
             return
 
         self.scale = ui_scale
+        self._text_cache.clear()
         self.button_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)), bold=True)
 
 
@@ -461,6 +494,7 @@ class DateShortcutStrip:
         self.scale = 0.0
         self.button_font: pygame.font.Font | None = None
         self.label_font: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
 
     def build_buttons(self, width: int, height: int, ui_scale: float, active_action: str | None) -> list[ControlButton]:
         self._ensure_fonts(ui_scale)
@@ -487,7 +521,7 @@ class DateShortcutStrip:
         if not buttons:
             return
 
-        label = self.label_font.render("QUICK DATES", True, (118, 128, 146))
+        label = render_cached(self._text_cache, self.label_font, "QUICK DATES", (118, 128, 146))
         surface.blit(label, (buttons[0].rect.x, buttons[0].rect.y - int(18 * ui_scale)))
         for button in buttons:
             fill = (9, 12, 19, 210)
@@ -499,7 +533,7 @@ class DateShortcutStrip:
             chip = pygame.Surface(button.rect.size, pygame.SRCALPHA)
             pygame.draw.rect(chip, fill, chip.get_rect(), border_radius=int(12 * ui_scale))
             pygame.draw.rect(chip, border, chip.get_rect(), width=1, border_radius=int(12 * ui_scale))
-            text = self.button_font.render(button.label, True, (220, 226, 234))
+            text = render_cached(self._text_cache, self.button_font, button.label, (220, 226, 234))
             chip.blit(text, text.get_rect(center=chip.get_rect().center))
             surface.blit(chip, button.rect.topleft)
 
@@ -508,6 +542,7 @@ class DateShortcutStrip:
             return
 
         self.scale = ui_scale
+        self._text_cache.clear()
         self.button_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)), bold=True)
         self.label_font = pygame.font.SysFont("segoeui", max(9, int(10 * ui_scale)), bold=True)
 
@@ -518,6 +553,7 @@ class TimelineStrip:
         self.label_font: pygame.font.Font | None = None
         self.meta_font: pygame.font.Font | None = None
         self.speed_font: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
 
     def build_speed_buttons(
         self,
@@ -582,8 +618,8 @@ class TimelineStrip:
         pygame.draw.rect(panel, (42, 48, 60, 220), panel.get_rect(), width=1, border_radius=int(22 * ui_scale))
         surface.blit(panel, panel_rect.topleft)
 
-        label_surface = self.label_font.render("SIMULATION TIME", True, (126, 136, 154))
-        value_surface = self.meta_font.render(date_label, True, (228, 233, 240))
+        label_surface = render_cached(self._text_cache, self.label_font, "SIMULATION TIME", (126, 136, 154))
+        value_surface = render_cached(self._text_cache, self.meta_font, date_label, (228, 233, 240))
         surface.blit(label_surface, (panel_rect.x + int(20 * ui_scale), panel_rect.y + int(16 * ui_scale)))
         surface.blit(value_surface, (panel_rect.x + int(20 * ui_scale), panel_rect.y + int(36 * ui_scale)))
 
@@ -609,7 +645,7 @@ class TimelineStrip:
             button_surface = pygame.Surface(button.rect.size, pygame.SRCALPHA)
             pygame.draw.rect(button_surface, fill, button_surface.get_rect(), border_radius=int(12 * ui_scale))
             pygame.draw.rect(button_surface, border, button_surface.get_rect(), width=1, border_radius=int(12 * ui_scale))
-            label = self.speed_font.render(button.label, True, (220, 226, 234))
+            label = render_cached(self._text_cache, self.speed_font, button.label, (220, 226, 234))
             label_rect = label.get_rect(center=button_surface.get_rect().center)
             button_surface.blit(label, label_rect)
             surface.blit(button_surface, button.rect.topleft)
@@ -619,6 +655,7 @@ class TimelineStrip:
             return
 
         self.scale = ui_scale
+        self._text_cache.clear()
         self.label_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)), bold=True)
         self.meta_font = pygame.font.SysFont("segoeui", max(13, int(15 * ui_scale)))
         self.speed_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)), bold=True)
