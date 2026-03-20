@@ -151,6 +151,7 @@ class HudChrome:
         self,
         surface: pygame.Surface,
         paused: bool,
+        live_mode: bool,
         zoom: float,
         scale_mode: str,
         scene_label: str,
@@ -163,8 +164,9 @@ class HudChrome:
         margin_x = int(42 * ui_scale)
         title = self.title_font.render("SOLAR SYSTEM", True, (230, 235, 242))
         subtitle = self.subtitle_font.render("Astronomy-inspired orbital visualization", True, (124, 136, 156))
+        status_label = "PAUSED" if paused else ("REAL-TIME" if live_mode else "SIMULATING")
         meta = self.meta_font.render(
-            f"{'PAUSED' if paused else 'LIVE'}   |   {scene_label.upper()}   |   {time_speed_label}   |   ZOOM {int(zoom * 100)}%   |   SCALE {scale_mode.upper()}",
+            f"{status_label}   |   {scene_label.upper()}   |   {time_speed_label}   |   ZOOM {int(zoom * 100)}%   |   SCALE {scale_mode.upper()}",
             True,
             (106, 118, 140),
         )
@@ -286,12 +288,14 @@ class ControlBar:
         height: int,
         ui_scale: float,
         paused: bool,
+        live_mode: bool,
         show_orbits: bool,
         show_labels: bool,
         scale_mode: str,
     ) -> list[ControlButton]:
         self._ensure_fonts(ui_scale)
         labels = [
+            ("toggle_live", "Live", live_mode),
             ("toggle_pause", "Resume" if paused else "Pause", paused),
             ("toggle_orbits", "Orbits", show_orbits),
             ("toggle_labels", "Labels", show_labels),
@@ -433,6 +437,7 @@ class TimelineStrip:
         height: int,
         ui_scale: float,
         time_speed_index: int,
+        live_mode: bool,
     ) -> list[ControlButton]:
         self._ensure_fonts(ui_scale)
         panel_width = min(int(width * 0.42), int(760 * ui_scale))
@@ -446,7 +451,7 @@ class TimelineStrip:
         for index, label in reversed(list(enumerate(labels))):
             button_width = max(int(56 * ui_scale), self.speed_font.size(label)[0] + int(24 * ui_scale))
             rect = pygame.Rect(x - button_width, y, button_width, int(30 * ui_scale))
-            buttons.append(ControlButton(action=f"speed_{index}", label=label, rect=rect, active=index == time_speed_index))
+            buttons.append(ControlButton(action=f"speed_{index}", label=label, rect=rect, active=(not live_mode and index == time_speed_index)))
             x -= button_width + gap
 
         buttons.reverse()

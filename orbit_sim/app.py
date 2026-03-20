@@ -52,6 +52,7 @@ class GravityStudioApp:
             *self.viewport,
             self.camera.layout.ui_scale,
             paused=False,
+            live_mode=self.simulation.live_mode,
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
             scale_mode=self.camera.scale_mode,
@@ -60,6 +61,7 @@ class GravityStudioApp:
             *self.viewport,
             self.camera.layout.ui_scale,
             self.simulation.time_speed_index,
+            self.simulation.live_mode,
         )
         self.timeline_slider = self.timeline_strip.build_slider(
             *self.viewport,
@@ -118,6 +120,7 @@ class GravityStudioApp:
             *self.viewport,
             self.camera.layout.ui_scale,
             paused=self.paused,
+            live_mode=self.simulation.live_mode,
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
             scale_mode=self.camera.scale_mode,
@@ -126,6 +129,7 @@ class GravityStudioApp:
             *self.viewport,
             self.camera.layout.ui_scale,
             self.simulation.time_speed_index,
+            self.simulation.live_mode,
         )
         self.timeline_slider = self.timeline_strip.build_slider(
             *self.viewport,
@@ -199,6 +203,7 @@ class GravityStudioApp:
         self.hud.draw(
             self.screen,
             self.paused,
+            self.simulation.live_mode,
             self.camera.zoom,
             self.camera.scale_mode,
             self.camera.scene_label,
@@ -246,6 +251,10 @@ class GravityStudioApp:
     def handle_action(self, action: str) -> None:
         if action == "toggle_pause":
             self.paused = not self.paused
+        elif action == "toggle_live":
+            self.simulation.set_live_mode(not self.simulation.live_mode)
+            if self.simulation.live_mode:
+                self.paused = False
         elif action == "toggle_orbits":
             self.show_orbits = not self.show_orbits
         elif action == "toggle_labels":
@@ -331,6 +340,7 @@ class GravityStudioApp:
     def update_timeline_from_pointer(self, x_position: int) -> None:
         relative = (x_position - self.timeline_slider.track_rect.left) / max(1, self.timeline_slider.track_rect.width)
         clamped = max(0.0, min(1.0, relative))
+        self.simulation.set_live_mode(False)
         self.simulation.set_simulation_days(self.simulation.timeline_range_days * clamped)
 
     def should_draw_focus_badge(self) -> bool:
