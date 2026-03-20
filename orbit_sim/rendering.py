@@ -7,7 +7,7 @@ from pygame import Vector2
 
 from orbit_sim.camera import SolarCamera
 from orbit_sim.config import SPACE_HAZE, STAR_CORE, STAR_GLOW
-from orbit_sim.models import CelestialBody
+from orbit_sim.models import CelestialBody, MoonBody
 from orbit_sim.planet_sphere import SpinningPlanetRenderer
 from orbit_sim.planet_textures import PlanetTextureLibrary
 
@@ -29,6 +29,7 @@ class SceneRenderer:
         surface: pygame.Surface,
         camera: SolarCamera,
         bodies: list[CelestialBody],
+        moons: list[MoonBody],
         elapsed_time: float,
         simulation_days: float,
         hovered_body: CelestialBody | None,
@@ -43,6 +44,7 @@ class SceneRenderer:
             self.draw_orbits(surface, camera, bodies, selected_body)
         self.draw_star(surface, camera, elapsed_time)
         self.draw_planets(surface, camera, bodies, elapsed_time, hovered_body, selected_body)
+        self.draw_moons(surface, camera, bodies, moons, selected_body)
         if show_labels:
             self.draw_labels(surface, camera, bodies, selected_body)
         if camera.scene_mode == "focus" and selected_body is not None:
@@ -155,6 +157,68 @@ class SceneRenderer:
             )
             if body.has_rings:
                 self._draw_saturn_rings(surface, screen_pos, planet_radius, front=True)
+
+    def draw_moons(
+        self,
+        surface: pygame.Surface,
+        camera: SolarCamera,
+        bodies: list[CelestialBody],
+        moons: list[MoonBody],
+        selected_body: CelestialBody | None,
+    ) -> None:
+        if not moons:
+            return
+
+        parent_lookup = {body.name: body for body in bodies}
+        for moon in moons:
+            parent = parent_lookup.get(moon.parent_name)
+            if parent is None or not self._should_draw_moon(parent, selected_body, camera):
+                continue
+
+            parent_position = camera.body_position(parent)
+            parent_radius = max(3, int(camera.planet_radius(parent)))
+            orbit_radius = self._moon_orbit_radius(parent, parent_radius, moon, camera)
+            orbit_rect = pygame.Rect(0, 0, orbit_radius * 2, max(2, int(orbit_radius * 0.54)))
+            orbit_rect.center = self._point(parent_position)
+            pygame.draw.ellipse(surface, (102, 112, 130, 42), orbit_rect, 1)
+
+            moon_offset = moon.orbital_offset()
+            moon_position = parent_position + Vector2(moon_offset.x * orbit_radius, moon_offset.y * orbit_rect.height * 0.5)
+            moon_radius = self._moon_radius(parent_radius, moon)
+            pygame.draw.circle(surface, (*moon.color, 228), self._point(moon_position), moon_radius)
+            pygame.draw.circle(surface, (*moon.accent_color, 128), self._point(moon_position + Vector2(-moon_radius * 0.28, -moon_radius * 0.18)), max(1, moon_radius - 1))
+            pygame.draw.circle(surface, (238, 242, 246), self._point(moon_position + Vector2(moon_radius * 0.36, moon_radius * 0.18)), 1)
+
+    def _should_draw_moon(
+        self,
+        parent: CelestialBody,
+        selected_body: CelestialBody | None,
+        camera: SolarCamera,
+    ) -> bool:
+        if camera.scene_mode == "focus":
+            return parent is selected_body
+        if parent is selected_body:
+            return True
+        if camera.zoom >= 1.34 and parent.name in {"Earth", "Jupiter", "Saturn"}:
+            return True
+        return False
+
+    def _moon_orbit_radius(
+        self,
+        parent: CelestialBody,
+        parent_radius: int,
+        moon: MoonBody,
+        camera: SolarCamera,
+    ) -> int:
+        ratio = moon.orbital_distance_km / max(parent.radius_km, 1.0)
+        base = parent_radius * (1.7 + min(4.8, ratio ** 0.32))
+        if camera.scene_mode == "focus" and parent is camera.focus_body:
+            base *= 1.24
+        return int(base)
+
+    def _moon_radius(self, parent_radius: int, moon: MoonBody) -> int:
+        size_ratio = (moon.radius_km / 1737.4) ** 0.36
+        return max(2, int(parent_radius * 0.16 * size_ratio))
 
     def _draw_planet_sprite(
         self,
