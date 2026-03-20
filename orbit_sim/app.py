@@ -17,7 +17,7 @@ from orbit_sim.config import (
 from orbit_sim.models import CelestialBody
 from orbit_sim.rendering import SceneRenderer
 from orbit_sim.simulation import OrbitalSimulation
-from orbit_sim.ui import ControlBar, HudChrome, InfoPanel
+from orbit_sim.ui import ControlBar, HudChrome, InfoPanel, SliderControl, TimelineStrip
 
 
 class GravityStudioApp:
@@ -33,6 +33,7 @@ class GravityStudioApp:
         self.hud = HudChrome()
         self.info_panel = InfoPanel()
         self.control_bar = ControlBar()
+        self.timeline_strip = TimelineStrip()
         self.scene_renderer = SceneRenderer()
         self.elapsed_time = 0.0
         self.hovered_body: CelestialBody | None = None
@@ -53,6 +54,17 @@ class GravityStudioApp:
             show_labels=self.show_labels,
             scale_mode=self.camera.scale_mode,
         )
+        self.timeline_buttons = self.timeline_strip.build_speed_buttons(
+            *self.viewport,
+            self.camera.layout.ui_scale,
+            self.simulation.time_speed_index,
+        )
+        self.timeline_slider = self.timeline_strip.build_slider(
+            *self.viewport,
+            self.camera.layout.ui_scale,
+            self.simulation.simulation_days / self.simulation.timeline_range_days,
+        )
+        self.dragging_timeline = False
         self.paused = False
         self.running = True
 
@@ -74,9 +86,16 @@ class GravityStudioApp:
                 action = self.action_at_screen_position(event.pos)
                 if action is not None:
                     self.handle_action(action)
+                elif self.timeline_hit_test(event.pos):
+                    self.dragging_timeline = True
+                    self.update_timeline_from_pointer(event.pos[0])
                 else:
                     self.selected_body = self.body_at_screen_position(Vector2(event.pos))
                     self.camera.set_focus_body(self.selected_body)
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                self.dragging_timeline = False
+            elif event.type == pygame.MOUSEMOTION and self.dragging_timeline:
+                self.update_timeline_from_pointer(event.pos[0])
             elif event.type == pygame.MOUSEWHEEL:
                 self.camera.adjust_zoom(event.y * 0.08)
             elif event.type == pygame.KEYDOWN:
@@ -94,6 +113,16 @@ class GravityStudioApp:
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
             scale_mode=self.camera.scale_mode,
+        )
+        self.timeline_buttons = self.timeline_strip.build_speed_buttons(
+            *self.viewport,
+            self.camera.layout.ui_scale,
+            self.simulation.time_speed_index,
+        )
+        self.timeline_slider = self.timeline_strip.build_slider(
+            *self.viewport,
+            self.camera.layout.ui_scale,
+            self.simulation.simulation_days / self.simulation.timeline_range_days,
         )
         self.hovered_action = self.action_at_screen_position(pygame.mouse.get_pos())
         self.hovered_body = self.body_at_screen_position(Vector2(pygame.mouse.get_pos()))
@@ -126,6 +155,7 @@ class GravityStudioApp:
             self.draw_hud()
             self.draw_info_panel()
             self.draw_controls()
+            self.draw_timeline()
         self.draw_notification()
         pygame.display.flip()
 
@@ -149,8 +179,18 @@ class GravityStudioApp:
     def draw_hud(self) -> None:
         self.hud.draw(self.screen, self.paused, self.camera.zoom, self.camera.scale_mode, self.camera.layout.ui_scale)
 
+    def draw_timeline(self) -> None:
+        date_label = self.simulation.current_date().strftime("%b %d, %Y")
+        self.timeline_strip.draw(
+            self.screen,
+            self.timeline_buttons,
+            self.timeline_slider,
+            date_label,
+            self.camera.layout.ui_scale,
+        )
+
     def action_at_screen_position(self, position: tuple[int, int]) -> str | None:
-        for button in self.control_buttons:
+        for button in [*self.control_buttons, *self.timeline_buttons]:
             if button.rect.collidepoint(position):
                 return button.action
 
@@ -225,6 +265,14 @@ class GravityStudioApp:
             return
 
         self.hud.draw_notification(self.screen, self.notification_text, self.notification_timer, self.camera.layout.ui_scale)
+
+    def timeline_hit_test(self, position: tuple[int, int]) -> bool:
+        return self.timeline_slider.track_rect.inflate(0, 18).collidepoint(position) or self.timeline_slider.handle_rect.collidepoint(position)
+
+    def update_timeline_from_pointer(self, x_position: int) -> None:
+        relative = (x_position - self.timeline_slider.track_rect.left) / max(1, self.timeline_slider.track_rect.width)
+        clamped = max(0.0, min(1.0, relative))
+        self.simulation.set_simulation_days(self.simulation.timeline_range_days * clamped)
 
     def _detect_viewport(self) -> tuple[int, int]:
         info = pygame.display.Info()

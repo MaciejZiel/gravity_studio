@@ -15,6 +15,14 @@ class ControlButton:
     active: bool = False
 
 
+@dataclass
+class SliderControl:
+    action: str
+    track_rect: pygame.Rect
+    handle_rect: pygame.Rect
+    value: float
+
+
 class InfoPanel:
     def __init__(self) -> None:
         self.scale = 0.0
@@ -252,3 +260,114 @@ class ControlBar:
 
         self.scale = ui_scale
         self.button_font = pygame.font.SysFont("segoeui", max(12, int(14 * ui_scale)), bold=True)
+
+
+class TimelineStrip:
+    def __init__(self) -> None:
+        self.scale = 0.0
+        self.label_font: pygame.font.Font | None = None
+        self.meta_font: pygame.font.Font | None = None
+        self.speed_font: pygame.font.Font | None = None
+
+    def build_speed_buttons(
+        self,
+        width: int,
+        height: int,
+        ui_scale: float,
+        time_speed_index: int,
+    ) -> list[ControlButton]:
+        self._ensure_fonts(ui_scale)
+        panel_width = min(int(width * 0.42), int(760 * ui_scale))
+        panel_x = (width - panel_width) // 2
+        y = height - int(122 * ui_scale)
+        gap = int(8 * ui_scale)
+        labels = ["1x", "10x", "100x", "1000x"]
+        buttons: list[ControlButton] = []
+        x = panel_x + panel_width - int(24 * ui_scale)
+
+        for index, label in reversed(list(enumerate(labels))):
+            button_width = max(int(56 * ui_scale), self.speed_font.size(label)[0] + int(24 * ui_scale))
+            rect = pygame.Rect(x - button_width, y, button_width, int(30 * ui_scale))
+            buttons.append(ControlButton(action=f"speed_{index}", label=label, rect=rect, active=index == time_speed_index))
+            x -= button_width + gap
+
+        buttons.reverse()
+        return buttons
+
+    def build_slider(
+        self,
+        width: int,
+        height: int,
+        ui_scale: float,
+        value: float,
+    ) -> SliderControl:
+        panel_width = min(int(width * 0.42), int(760 * ui_scale))
+        track_width = panel_width - int(40 * ui_scale)
+        track_height = max(4, int(6 * ui_scale))
+        track_rect = pygame.Rect((width - track_width) // 2, height - int(76 * ui_scale), track_width, track_height)
+        handle_x = track_rect.x + int(track_rect.width * value)
+        handle_rect = pygame.Rect(0, 0, int(16 * ui_scale), int(16 * ui_scale))
+        handle_rect.center = (handle_x, track_rect.centery)
+        return SliderControl(action="timeline", track_rect=track_rect, handle_rect=handle_rect, value=value)
+
+    def draw(
+        self,
+        surface: pygame.Surface,
+        speed_buttons: list[ControlButton],
+        slider: SliderControl,
+        date_label: str,
+        ui_scale: float,
+    ) -> None:
+        self._ensure_fonts(ui_scale)
+        panel_rect = slider.track_rect.inflate(int(40 * ui_scale), int(86 * ui_scale))
+        panel_rect.y -= int(18 * ui_scale)
+
+        shadow = pygame.Surface((panel_rect.width + int(20 * ui_scale), panel_rect.height + int(22 * ui_scale)), pygame.SRCALPHA)
+        pygame.draw.rect(shadow, (0, 0, 0, 56), shadow.get_rect(), border_radius=int(24 * ui_scale))
+        surface.blit(shadow, (panel_rect.x - int(10 * ui_scale), panel_rect.y + int(8 * ui_scale)))
+
+        panel = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(panel, (8, 11, 18, 220), panel.get_rect(), border_radius=int(22 * ui_scale))
+        pygame.draw.rect(panel, (42, 48, 60, 220), panel.get_rect(), width=1, border_radius=int(22 * ui_scale))
+        surface.blit(panel, panel_rect.topleft)
+
+        label_surface = self.label_font.render("SIMULATION DATE", True, (126, 136, 154))
+        value_surface = self.meta_font.render(date_label, True, (228, 233, 240))
+        surface.blit(label_surface, (panel_rect.x + int(20 * ui_scale), panel_rect.y + int(16 * ui_scale)))
+        surface.blit(value_surface, (panel_rect.x + int(20 * ui_scale), panel_rect.y + int(36 * ui_scale)))
+
+        track_surface = pygame.Surface(slider.track_rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(track_surface, (36, 43, 56, 255), track_surface.get_rect(), border_radius=track_surface.get_height() // 2)
+        filled_rect = track_surface.get_rect()
+        filled_rect.width = max(1, int(track_surface.get_width() * slider.value))
+        pygame.draw.rect(track_surface, (120, 132, 158, 255), filled_rect, border_radius=track_surface.get_height() // 2)
+        surface.blit(track_surface, slider.track_rect.topleft)
+
+        handle_surface = pygame.Surface(slider.handle_rect.size, pygame.SRCALPHA)
+        pygame.draw.circle(handle_surface, (228, 232, 239), handle_surface.get_rect().center, handle_surface.get_width() // 2)
+        pygame.draw.circle(handle_surface, (64, 74, 92), handle_surface.get_rect().center, max(1, handle_surface.get_width() // 2 - 1), 1)
+        surface.blit(handle_surface, slider.handle_rect.topleft)
+
+        for button in speed_buttons:
+            fill = (14, 18, 26, 250)
+            border = (49, 56, 70, 255)
+            if button.active:
+                fill = (26, 34, 46, 252)
+                border = (112, 126, 148, 255)
+
+            button_surface = pygame.Surface(button.rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(button_surface, fill, button_surface.get_rect(), border_radius=int(12 * ui_scale))
+            pygame.draw.rect(button_surface, border, button_surface.get_rect(), width=1, border_radius=int(12 * ui_scale))
+            label = self.speed_font.render(button.label, True, (220, 226, 234))
+            label_rect = label.get_rect(center=button_surface.get_rect().center)
+            button_surface.blit(label, label_rect)
+            surface.blit(button_surface, button.rect.topleft)
+
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.scale) < 0.01:
+            return
+
+        self.scale = ui_scale
+        self.label_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)), bold=True)
+        self.meta_font = pygame.font.SysFont("segoeui", max(13, int(15 * ui_scale)))
+        self.speed_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)), bold=True)
