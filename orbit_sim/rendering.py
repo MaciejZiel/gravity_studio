@@ -28,11 +28,11 @@ class SceneRenderer:
     def draw_space_haze(self, surface: pygame.Surface, zoom: float) -> None:
         size = surface.get_size()
         haze = pygame.Surface(size, pygame.SRCALPHA)
-        center = (size[0] // 2, size[1] // 2)
+        center = (int(size[0] * 0.44), int(size[1] * 0.54))
         haze_scale = 0.9 + (zoom - 1.0) * 0.18
 
         min_dimension = min(size)
-        for radius_factor, alpha in ((0.4, 16), (0.27, 28), (0.18, 42)):
+        for radius_factor, alpha in ((0.5, 9), (0.32, 18), (0.2, 28)):
             radius = int(min_dimension * radius_factor)
             pygame.draw.circle(haze, (*SPACE_HAZE, alpha), center, int(radius * haze_scale))
 
@@ -42,13 +42,13 @@ class SceneRenderer:
         center_vector = camera.layout.scene_center
         center = (int(center_vector.x), int(center_vector.y))
         pulse = 1.0 + sin(elapsed_time * 0.9) * 0.018
-        base_glow = int(camera.sun_radius() * 15)
+        base_glow = int(camera.sun_radius() * 14)
         star_scale = pulse
         glow_size = int(base_glow * star_scale)
         glow = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
         glow_center = (glow_size // 2, glow_size // 2)
 
-        for radius_factor, alpha in ((0.36, 12), (0.24, 20), (0.17, 34), (0.11, 56)):
+        for radius_factor, alpha in ((0.42, 5), (0.28, 10), (0.18, 18), (0.11, 34)):
             pygame.draw.circle(glow, (*STAR_GLOW, alpha), glow_center, max(1, int(glow_size * radius_factor)))
 
         surface.blit(
@@ -58,6 +58,7 @@ class SceneRenderer:
         )
         sun_outer = max(16, int(camera.sun_radius() * star_scale))
         sun_inner = max(10, int(sun_outer * 0.62))
+        pygame.draw.circle(surface, (250, 220, 158), center, int(sun_outer * 1.16))
         pygame.draw.circle(surface, STAR_GLOW, center, sun_outer)
         pygame.draw.circle(surface, STAR_CORE, center, sun_inner)
 
@@ -73,14 +74,11 @@ class SceneRenderer:
 
         for body in bodies:
             scaled_radius = int(camera.orbit_radius(body))
-            base_color = (86, 109, 156, 42)
-            halo_color = (150, 170, 212, 12)
+            base_color = (112, 121, 138, 24)
             if body is selected_body:
-                base_color = (*body.accent_color, 72)
-                halo_color = (*body.color, 24)
+                base_color = (194, 203, 214, 52)
 
             pygame.draw.circle(orbit_surface, base_color, center, scaled_radius, 1)
-            pygame.draw.circle(orbit_surface, halo_color, center, scaled_radius + 1, 1)
 
         surface.blit(orbit_surface, (0, 0))
 
