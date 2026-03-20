@@ -85,6 +85,7 @@ class SpinningPlanetRenderer:
                 shaded_normal = (surface_normal + bump).normalize()
                 diffuse = max(0.0, shaded_normal.dot(light_direction))
                 lit_color = self._shade_color(body, source_color, diffuse)
+                lit_color = self._apply_terminator_glow(body, lit_color, diffuse)
                 if body.name == "Earth" and earth_night is not None:
                     night_color = earth_night.get_at((source_x, source_y))
                     night_mix = max(0.0, (0.34 - diffuse) / 0.34)
@@ -96,6 +97,9 @@ class SpinningPlanetRenderer:
                     cloud_color = earth_clouds.get_at((cloud_x, source_y))
                     cloud_mix = max(0.0, (self._luminance(cloud_color) - 0.46) * 1.8)
                     lit_color = self._blend(lit_color, (248, 250, 252), min(0.32, cloud_mix))
+                aurora_mix = self._aurora_mix(body, latitude, diffuse)
+                if aurora_mix > 0.0:
+                    lit_color = self._blend(lit_color, self._aurora_color(body), aurora_mix)
                 sphere.set_at((x, y), lit_color)
 
         sphere.unlock()
@@ -154,6 +158,20 @@ class SpinningPlanetRenderer:
             min(255, int(base_color[2] + emission.b * amount)),
             255,
         )
+
+    def _apply_terminator_glow(
+        self,
+        body: CelestialBody,
+        base_color: tuple[int, int, int, int],
+        diffuse: float,
+    ) -> tuple[int, int, int, int]:
+        if body.name not in {"Venus", "Earth", "Mars", "Uranus", "Neptune", "Saturn"}:
+            return base_color
+
+        glow_amount = max(0.0, 0.22 - abs(diffuse - 0.12)) / 0.22
+        if glow_amount <= 0.0:
+            return base_color
+        return self._blend(base_color, self._terminator_color(body), min(0.24, glow_amount * 0.22))
 
     def _blend(
         self,
@@ -215,6 +233,31 @@ class SpinningPlanetRenderer:
         up = luminance_rows[max(0, y - 1)][x] / 255.0
         down = luminance_rows[min(texture_height - 1, y + 1)][x] / 255.0
         return Vector3((left - right) * strength, (down - up) * strength, 0.0)
+
+    def _aurora_mix(self, body: CelestialBody, latitude: float, diffuse: float) -> float:
+        if body.name not in {"Earth", "Jupiter", "Saturn"}:
+            return 0.0
+        polar_distance = max(0.0, (abs(latitude) - radians(48.0)) / radians(26.0))
+        if polar_distance <= 0.0:
+            return 0.0
+        twilight = max(0.0, min(1.0, (0.38 - diffuse) / 0.38))
+        return min(0.24, polar_distance * twilight * (0.28 if body.name == "Earth" else 0.18))
+
+    def _aurora_color(self, body: CelestialBody) -> tuple[int, int, int]:
+        if body.name == "Earth":
+            return 108, 220, 182
+        return 134, 202, 244
+
+    def _terminator_color(self, body: CelestialBody) -> tuple[int, int, int]:
+        colors = {
+            "Venus": (236, 214, 178),
+            "Earth": (126, 178, 236),
+            "Mars": (214, 156, 122),
+            "Uranus": (194, 230, 236),
+            "Neptune": (128, 170, 236),
+            "Saturn": (226, 206, 170),
+        }
+        return colors.get(body.name, body.accent_color)
 
     def _luminance(self, color: pygame.Color) -> float:
         return (color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722) / 255.0
