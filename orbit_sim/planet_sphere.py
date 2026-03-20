@@ -19,14 +19,14 @@ class SpinningPlanetRenderer:
         body: CelestialBody,
         diameter: int,
         simulation_days: float,
-        rotation_offset_degrees: float = 0.0,
+        display_rotation_degrees: float | None = None,
     ) -> pygame.Surface | None:
         if not self.texture_library.has_texture(body.name):
             return None
 
         safe_diameter = max(140, int(diameter))
-        internal_diameter = max(160, min(320, int(safe_diameter * 0.74)))
-        rotation_degrees = self._rotation_degrees(body, simulation_days) + rotation_offset_degrees
+        internal_diameter = max(148, min(288, int(safe_diameter * 0.68)))
+        rotation_degrees = self._rotation_degrees(body, simulation_days) if display_rotation_degrees is None else display_rotation_degrees
         rotation_index = int((rotation_degrees % 360.0) / 3.0)
         cache_key = (body.name, internal_diameter, rotation_index)
         if cache_key not in self._frame_cache:

@@ -35,7 +35,7 @@ class SceneRenderer:
         selected_body: CelestialBody | None,
         show_orbits: bool,
         show_labels: bool,
-        focus_rotation_offset: float = 0.0,
+        focus_rotation_degrees: float = 0.0,
     ) -> None:
         self._ensure_fonts(camera.layout.ui_scale)
         self.draw_space_haze(surface, camera.zoom)
@@ -48,7 +48,7 @@ class SceneRenderer:
         if camera.scene_mode == "focus" and selected_body is not None:
             self.draw_focus_vignette(surface, camera, selected_body)
         if selected_body is not None and self._should_draw_focus_closeup(camera):
-            self.draw_focus_closeup(surface, camera, selected_body, simulation_days, focus_rotation_offset)
+            self.draw_focus_closeup(surface, camera, selected_body, simulation_days, focus_rotation_degrees)
 
     def draw_space_haze(self, surface: pygame.Surface, zoom: float) -> None:
         cache_key = (surface.get_size(), round(zoom, 2))
@@ -406,7 +406,7 @@ class SceneRenderer:
         camera: SolarCamera,
         selected_body: CelestialBody,
         simulation_days: float,
-        focus_rotation_offset: float,
+        focus_rotation_degrees: float,
     ) -> None:
         hero_rect = self.focus_closeup_rect(surface.get_size(), camera)
         if hero_rect is None:
@@ -428,7 +428,7 @@ class SceneRenderer:
             selected_body,
             diameter,
             simulation_days,
-            rotation_offset_degrees=focus_rotation_offset,
+            display_rotation_degrees=focus_rotation_degrees,
         )
         if sphere_surface is not None:
             glow = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)

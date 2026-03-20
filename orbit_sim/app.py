@@ -60,6 +60,7 @@ class GravityStudioApp:
         self.ui_hidden = self.settings.ui_hidden
         self.notification_text: str | None = None
         self.notification_timer = 0.0
+        self.focus_auto_rotation = 0.0
         self.focus_rotation_offset = 0.0
         self.dragging_focus_preview = False
         self.focus_drag_anchor_x = 0
@@ -108,6 +109,7 @@ class GravityStudioApp:
                     previous_selection = self.selected_body
                     self.selected_body = self.body_at_screen_position(Vector2(event.pos))
                     if self.selected_body is not previous_selection:
+                        self.focus_auto_rotation = 0.0
                         self.focus_rotation_offset = 0.0
                     self.camera.set_focus_body(self.selected_body)
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -136,6 +138,8 @@ class GravityStudioApp:
         self.hovered_action = self.action_at_screen_position(mouse_position)
         self.hovered_body = self.body_at_screen_position(Vector2(mouse_position))
         if self.selected_body is not None:
+            self.focus_auto_rotation = (self.focus_auto_rotation + dt * self._focus_spin_rate(self.selected_body)) % 360.0
+        if self.selected_body is not None:
             self.panel_body = self.selected_body
 
         target_visibility = 1.0 if self.selected_body else 0.0
@@ -161,7 +165,7 @@ class GravityStudioApp:
             self.selected_body,
             self.show_orbits,
             self.show_labels,
-            self.focus_rotation_offset,
+            self.focus_auto_rotation + self.focus_rotation_offset,
         )
         if not self.ui_hidden:
             self.draw_hud(local_now)
@@ -287,6 +291,7 @@ class GravityStudioApp:
             self.selected_body = None
             self.panel_body = None
             self.panel_visibility = 0.0
+            self.focus_auto_rotation = 0.0
             self.focus_rotation_offset = 0.0
         elif action == "capture_clean":
             self.capture_screenshot(clean=True)
@@ -413,7 +418,7 @@ class GravityStudioApp:
             self.selected_body,
             self.show_orbits,
             self.show_labels,
-            self.focus_rotation_offset,
+            self.focus_auto_rotation + self.focus_rotation_offset,
         )
         return capture_surface
 
@@ -427,6 +432,11 @@ class GravityStudioApp:
             master_volume=self.settings.master_volume,
         )
         self.settings_store.save(self.settings)
+
+    def _focus_spin_rate(self, body: CelestialBody) -> float:
+        rotation_hours = max(4.0, abs(body.rotation_hours))
+        relative_speed = (24.0 / rotation_hours) ** 0.45
+        return max(4.0, min(18.0, 5.5 * relative_speed))
 
     def _refresh_ui_layout(self, force: bool = False) -> None:
         layout_key = (
