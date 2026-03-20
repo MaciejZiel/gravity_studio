@@ -313,6 +313,8 @@ class GravityStudioApp:
             self.show_missions = not self.show_missions
         elif action == "toggle_sky":
             self.show_sky = not self.show_sky
+        elif action == "toggle_story_scale":
+            self.camera.set_scale_story(not self.camera.scale_story_mode)
         elif action == "toggle_sound":
             enabled = self.settings.master_volume == 0.0
             self.settings.master_volume = 0.42 if enabled else 0.0
@@ -371,6 +373,8 @@ class GravityStudioApp:
             self.handle_action("toggle_missions")
         elif event.key == pygame.K_k:
             self.handle_action("toggle_sky")
+        elif event.key == pygame.K_s:
+            self.handle_action("toggle_story_scale")
         elif event.key == pygame.K_h:
             self.ui_hidden = not self.ui_hidden
         elif event.key == pygame.K_p:
@@ -518,6 +522,7 @@ class GravityStudioApp:
     def _apply_tour_step(self, step: TourStep) -> None:
         if step.jump_action is not None:
             self.simulation.jump_to_bookmark(step.jump_action)
+        self.camera.set_scale_story(step.scale_story)
         if step.focus_body is not None:
             focus_body = self.simulation.body_named(step.focus_body)
             self.selected_body = focus_body
@@ -547,6 +552,7 @@ class GravityStudioApp:
         self.active_tour_step_index = 0
         self.tour_step_elapsed = 0.0
         self.presentation_mode = False
+        self.camera.set_scale_story(False)
 
     def _detect_viewport(self) -> tuple[int, int]:
         info = pygame.display.Info()
@@ -611,6 +617,7 @@ class GravityStudioApp:
             self.show_labels,
             self.show_missions,
             self.show_sky,
+            self.camera.scale_story_mode,
             self.camera.scale_mode,
             self.camera.scene_mode,
             self.active_tour.action if self.active_tour is not None else None,
@@ -635,6 +642,7 @@ class GravityStudioApp:
             show_labels=self.show_labels,
             show_missions=self.show_missions,
             show_sky=self.show_sky,
+            story_mode=self.camera.scale_story_mode,
             scale_mode=self.camera.scale_mode,
             focus_mode=self.camera.scene_mode == "focus",
         )

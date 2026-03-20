@@ -12,6 +12,8 @@ from orbit_sim.models import CelestialBody
 MAX_SOLAR_DISTANCE_AU = 30.05
 EARTH_RADIUS_KM = 6371.0
 VIEW_TILT_DEG = 24.0
+STORY_COMPRESSION = 0.14
+STORY_SPAN_FACTOR = 1.22
 
 
 @dataclass(frozen=True)
@@ -52,6 +54,9 @@ class SolarCamera:
         self.scale_mode = "compressed"
         self.scene_mode = "full_system"
         self.focus_body: CelestialBody | None = None
+        self.scale_story_mode = False
+        self.story_progress = 0.0
+        self.target_story_progress = 0.0
         self.current_compression = self._scene_preset.compression
         self.target_compression = self.current_compression
         self.current_span_factor = self._scene_preset.orbit_span_factor
@@ -89,6 +94,10 @@ class SolarCamera:
     def toggle_scale_mode(self) -> None:
         self.scale_mode = "expanded" if self.scale_mode == "compressed" else "compressed"
 
+    def set_scale_story(self, enabled: bool) -> None:
+        self.scale_story_mode = enabled
+        self.target_story_progress = 1.0 if enabled else 0.0
+
     def set_scene(self, scene_mode: str) -> None:
         if scene_mode not in SCENE_PRESETS:
             return
@@ -115,6 +124,9 @@ class SolarCamera:
         self.target_scene_zoom = 1.0
         self.scene_mode = "full_system"
         self.focus_body = None
+        self.scale_story_mode = False
+        self.story_progress = 0.0
+        self.target_story_progress = 0.0
         self.current_compression = SCENE_PRESETS["full_system"].compression
         self.target_compression = self.current_compression
         self.current_span_factor = SCENE_PRESETS["full_system"].orbit_span_factor
@@ -130,8 +142,11 @@ class SolarCamera:
     def update(self, dt: float, elapsed_time: float) -> None:
         preset = self._scene_preset
         self.target_scene_zoom = preset.scene_zoom
-        self.target_compression = preset.compression * (1.0 if self.scale_mode == "compressed" else 0.62)
-        self.target_span_factor = preset.orbit_span_factor * (1.02 if self.scale_mode == "expanded" else 1.0)
+        base_compression = preset.compression * (1.0 if self.scale_mode == "compressed" else 0.62)
+        base_span_factor = preset.orbit_span_factor * (1.02 if self.scale_mode == "expanded" else 1.0)
+        self.story_progress += (self.target_story_progress - self.story_progress) * min(1.0, dt * 2.1)
+        self.target_compression = base_compression + (STORY_COMPRESSION - base_compression) * self.story_progress
+        self.target_span_factor = base_span_factor + (STORY_SPAN_FACTOR - base_span_factor) * self.story_progress
         self.target_center = self._target_scene_center(preset, elapsed_time)
         self.transition_energy = max(0.0, self.transition_energy - dt * 1.6)
 

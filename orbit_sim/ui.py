@@ -345,6 +345,7 @@ class ControlBar:
         show_labels: bool,
         show_missions: bool,
         show_sky: bool,
+        story_mode: bool,
         scale_mode: str,
         focus_mode: bool,
     ) -> list[ControlButton]:
@@ -357,6 +358,7 @@ class ControlBar:
                 ("toggle_sound", "Sound", sound_enabled),
                 ("toggle_missions", "Missions", show_missions),
                 ("toggle_sky", "Sky", show_sky),
+                ("toggle_story_scale", "Story Scale", story_mode),
                 ("capture_clean", "Clean Shot", False),
                 ("reset", "Reset", False),
             ]
@@ -369,6 +371,7 @@ class ControlBar:
                 ("toggle_labels", "Labels", show_labels),
                 ("toggle_missions", "Missions", show_missions),
                 ("toggle_sky", "Sky", show_sky),
+                ("toggle_story_scale", "Story Scale", story_mode),
                 ("toggle_scale", f"Scale: {scale_mode.title()}", scale_mode == "expanded"),
                 ("reset", "Reset", False),
             ]
