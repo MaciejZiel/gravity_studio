@@ -116,7 +116,7 @@ class SceneRenderer:
 
             self._draw_planet_halo(surface, screen_pos, planet_radius, body)
             if body.has_rings:
-                self._draw_saturn_rings(surface, screen_pos, planet_radius)
+                self._draw_saturn_rings(surface, screen_pos, planet_radius, front=False)
 
             if is_hovered or is_selected:
                 ring_color = (216, 222, 231) if is_selected else (162, 169, 179)
@@ -130,6 +130,8 @@ class SceneRenderer:
                 planet_surface,
                 (screen_pos[0] - planet_radius * 2, screen_pos[1] - planet_radius * 2),
             )
+            if body.has_rings:
+                self._draw_saturn_rings(surface, screen_pos, planet_radius, front=True)
 
     def _draw_planet_sprite(
         self,
@@ -232,23 +234,23 @@ class SceneRenderer:
         pygame.draw.circle(halo_surface, (*body.color, halo_alpha), (halo_radius, halo_radius), halo_radius)
         surface.blit(halo_surface, (screen_pos[0] - halo_radius, screen_pos[1] - halo_radius), special_flags=pygame.BLEND_ALPHA_SDL2)
 
-    def _draw_saturn_rings(self, surface: pygame.Surface, center: tuple[int, int], radius: int) -> None:
+    def _draw_saturn_rings(self, surface: pygame.Surface, center: tuple[int, int], radius: int, front: bool) -> None:
         ring_size = radius * 6
-        back_rings = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
-        front_rings = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
-        front_rings.set_clip(pygame.Rect(0, ring_size // 2, ring_size, ring_size // 2))
+        ring_surface = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
+        if front:
+            ring_surface.set_clip(pygame.Rect(0, ring_size // 2, ring_size, ring_size // 2))
+        else:
+            ring_surface.set_clip(pygame.Rect(0, 0, ring_size, ring_size // 2))
         ellipse_rect = pygame.Rect(0, 0, ring_size, int(ring_size * 0.44))
         ellipse_rect.center = (ring_size // 2, ring_size // 2)
 
         for width_factor, alpha in ((0.2, 42), (0.14, 56), (0.08, 30)):
             line_width = max(1, int(radius * width_factor))
             color = (208, 194, 164, alpha)
-            pygame.draw.ellipse(back_rings, color, ellipse_rect, line_width)
-            pygame.draw.ellipse(front_rings, color, ellipse_rect, line_width)
+            pygame.draw.ellipse(ring_surface, color, ellipse_rect, line_width)
 
-        front_rings.set_clip(None)
-        surface.blit(back_rings, (center[0] - ring_size // 2, center[1] - ring_size // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
-        surface.blit(front_rings, (center[0] - ring_size // 2, center[1] - ring_size // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
+        ring_surface.set_clip(None)
+        surface.blit(ring_surface, (center[0] - ring_size // 2, center[1] - ring_size // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
 
     def _darken(self, color: tuple[int, int, int], factor: float) -> tuple[int, int, int]:
         return tuple(max(0, min(255, int(channel * factor))) for channel in color)
