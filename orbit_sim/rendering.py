@@ -173,6 +173,7 @@ class SceneRenderer:
             max(2, radius // 6),
         )
         pygame.draw.circle(surface, (*rim_color, 52), self._point(center), radius, 1)
+        self._draw_atmosphere(surface, center, radius, body, light_vector)
 
     def _draw_surface_features(
         self,
@@ -205,6 +206,15 @@ class SceneRenderer:
             band_rect = pygame.Rect(int(rect.width * 0.1), y - height // 2, int(rect.width * 0.8), height)
             pygame.draw.ellipse(band_surface, color, band_rect)
 
+        if body.name == "Jupiter":
+            spot_rect = pygame.Rect(0, 0, int(rect.width * 0.22), int(rect.height * 0.14))
+            spot_rect.center = (int(rect.width * 0.62), int(rect.height * 0.57))
+            pygame.draw.ellipse(band_surface, (188, 122, 92, 98), spot_rect)
+        elif body.name == "Neptune":
+            storm_rect = pygame.Rect(0, 0, int(rect.width * 0.18), int(rect.height * 0.12))
+            storm_rect.center = (int(rect.width * 0.42), int(rect.height * 0.46))
+            pygame.draw.ellipse(band_surface, (168, 196, 236, 54), storm_rect)
+
         surface.blit(band_surface, rect.topleft, special_flags=pygame.BLEND_ALPHA_SDL2)
 
     def _draw_terrestrial_markings(
@@ -217,11 +227,18 @@ class SceneRenderer:
         if body.name == "Earth":
             pygame.draw.circle(surface, (114, 143, 96, 110), self._point(center + Vector2(-radius * 0.18, -radius * 0.05)), max(2, int(radius * 0.26)))
             pygame.draw.circle(surface, (123, 152, 102, 90), self._point(center + Vector2(radius * 0.1, radius * 0.22)), max(2, int(radius * 0.2)))
+            pygame.draw.circle(surface, (232, 239, 245, 68), self._point(center + Vector2(radius * 0.04, -radius * 0.22)), max(2, int(radius * 0.18)))
+            pygame.draw.circle(surface, (232, 239, 245, 44), self._point(center + Vector2(-radius * 0.24, radius * 0.18)), max(2, int(radius * 0.13)))
         elif body.name == "Mars":
             pygame.draw.circle(surface, (188, 146, 124, 70), self._point(center + Vector2(radius * 0.12, -radius * 0.2)), max(2, int(radius * 0.18)))
             pygame.draw.circle(surface, (120, 82, 64, 74), self._point(center + Vector2(-radius * 0.24, radius * 0.14)), max(2, int(radius * 0.22)))
+            pygame.draw.circle(surface, (240, 236, 230, 76), self._point(center + Vector2(0, -radius * 0.56)), max(2, int(radius * 0.12)))
         elif body.name == "Venus":
             pygame.draw.circle(surface, (204, 184, 148, 58), self._point(center + Vector2(-radius * 0.16, 0)), max(2, int(radius * 0.34)))
+            pygame.draw.circle(surface, (232, 220, 190, 42), self._point(center + Vector2(radius * 0.18, -radius * 0.22)), max(2, int(radius * 0.22)))
+        elif body.name == "Mercury":
+            pygame.draw.circle(surface, (176, 168, 156, 54), self._point(center + Vector2(-radius * 0.1, radius * 0.1)), max(2, int(radius * 0.18)))
+            pygame.draw.circle(surface, (120, 114, 108, 54), self._point(center + Vector2(radius * 0.2, -radius * 0.22)), max(2, int(radius * 0.12)))
         else:
             pygame.draw.circle(surface, (188, 182, 172, 46), self._point(center + Vector2(-radius * 0.18, radius * 0.12)), max(2, int(radius * 0.16)))
 
@@ -255,6 +272,35 @@ class SceneRenderer:
 
         ring_surface.set_clip(None)
         surface.blit(ring_surface, (center[0] - ring_size // 2, center[1] - ring_size // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
+
+    def _draw_atmosphere(
+        self,
+        surface: pygame.Surface,
+        center: Vector2,
+        radius: int,
+        body: CelestialBody,
+        light_vector: Vector2,
+    ) -> None:
+        atmosphere_colors = {
+            "Venus": (235, 212, 176, 48),
+            "Earth": (134, 176, 229, 62),
+            "Mars": (216, 168, 138, 28),
+            "Uranus": (190, 228, 238, 46),
+            "Neptune": (136, 172, 232, 54),
+        }
+        if body.name not in atmosphere_colors:
+            return
+
+        atmosphere_surface = pygame.Surface((radius * 6, radius * 6), pygame.SRCALPHA)
+        local_center = Vector2(atmosphere_surface.get_width() / 2, atmosphere_surface.get_height() / 2)
+        halo_center = local_center + light_vector * radius * 0.18
+        pygame.draw.circle(atmosphere_surface, atmosphere_colors[body.name], self._point(halo_center), int(radius * 1.18))
+        pygame.draw.circle(atmosphere_surface, (255, 255, 255, 18), self._point(local_center + light_vector * radius * 0.34), max(2, int(radius * 0.95)), 1)
+        surface.blit(
+            atmosphere_surface,
+            (int(center.x - atmosphere_surface.get_width() / 2), int(center.y - atmosphere_surface.get_height() / 2)),
+            special_flags=pygame.BLEND_ALPHA_SDL2,
+        )
 
     def _darken(self, color: tuple[int, int, int], factor: float) -> tuple[int, int, int]:
         return tuple(max(0, min(255, int(channel * factor))) for channel in color)
