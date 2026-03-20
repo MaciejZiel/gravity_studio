@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from math import radians
 
@@ -8,15 +9,25 @@ from orbit_sim.solar_system import PlanetDefinition, SOLAR_SYSTEM_PLANETS
 
 
 SIMULATION_EPOCH = datetime(2000, 1, 1, 12, 0, 0)
-TIMELINE_RANGE_DAYS = 365.25 * 165
+TIMELINE_START = datetime(1960, 1, 1, 0, 0, 0)
+TIMELINE_END = datetime(2165, 1, 1, 0, 0, 0)
 BASE_DAYS_PER_SECOND = 1.2
 TIME_SPEED_LEVELS = (1, 10, 100, 1000)
+
+
+@dataclass(frozen=True)
+class TimelineBookmark:
+    action: str
+    label: str
+    moment: datetime
 
 
 class OrbitalSimulation:
     def __init__(self) -> None:
         self.epoch = SIMULATION_EPOCH
-        self.timeline_range_days = TIMELINE_RANGE_DAYS
+        self.timeline_start_days = (TIMELINE_START - self.epoch).total_seconds() / 86400.0
+        self.timeline_end_days = (TIMELINE_END - self.epoch).total_seconds() / 86400.0
+        self.timeline_range_days = self.timeline_end_days - self.timeline_start_days
         self.time_speed_levels = TIME_SPEED_LEVELS
         self.time_speed_index = 1
         self.base_days_per_second = BASE_DAYS_PER_SECOND
@@ -53,11 +64,16 @@ class OrbitalSimulation:
 
     def set_simulation_days(self, days: float) -> None:
         self.live_mode = False
-        self.simulation_days = max(0.0, min(days, self.timeline_range_days))
+        self.simulation_days = max(self.timeline_start_days, min(days, self.timeline_end_days))
         self._sync_body_angles()
 
     def advance_days(self, days: float) -> None:
-        self.simulation_days = (self.simulation_days + days) % self.timeline_range_days
+        advanced_days = self.simulation_days + days
+        if advanced_days > self.timeline_end_days:
+            advanced_days = self.timeline_start_days + (advanced_days - self.timeline_end_days)
+        elif advanced_days < self.timeline_start_days:
+            advanced_days = self.timeline_end_days - (self.timeline_start_days - advanced_days)
+        self.simulation_days = advanced_days
         self._sync_body_angles()
 
     def set_live_mode(self, enabled: bool) -> None:
@@ -67,14 +83,42 @@ class OrbitalSimulation:
 
     def sync_to_datetime(self, moment: datetime) -> None:
         offset = moment - self.epoch
-        self.simulation_days = max(0.0, min(offset.total_seconds() / 86400.0, self.timeline_range_days))
+        self.simulation_days = max(
+            self.timeline_start_days,
+            min(offset.total_seconds() / 86400.0, self.timeline_end_days),
+        )
         self._sync_body_angles()
+
+    @property
+    def timeline_progress(self) -> float:
+        return (self.simulation_days - self.timeline_start_days) / max(1.0, self.timeline_range_days)
+
+    def set_timeline_progress(self, progress: float) -> None:
+        clamped = max(0.0, min(1.0, progress))
+        self.set_simulation_days(self.timeline_start_days + self.timeline_range_days * clamped)
 
     def current_date(self) -> date:
         return self.current_datetime().date()
 
     def current_datetime(self) -> datetime:
         return self.epoch + timedelta(days=self.simulation_days)
+
+    def bookmarks(self) -> list[TimelineBookmark]:
+        current_year = self.current_datetime().year
+        return [
+            TimelineBookmark("jump_now", "Now", datetime.now().replace(microsecond=0)),
+            TimelineBookmark("jump_equinox", "Equinox", datetime(current_year, 3, 20, 12, 0, 0)),
+            TimelineBookmark("jump_solstice", "Solstice", datetime(current_year, 6, 21, 12, 0, 0)),
+            TimelineBookmark("jump_apollo", "Apollo 11", datetime(1969, 7, 20, 20, 17, 0)),
+            TimelineBookmark("jump_voyager", "Voyager 1", datetime(1977, 9, 5, 12, 56, 0)),
+        ]
+
+    def jump_to_bookmark(self, action: str) -> None:
+        for bookmark in self.bookmarks():
+            if bookmark.action == action:
+                self.live_mode = action == "jump_now"
+                self.sync_to_datetime(bookmark.moment)
+                return
 
     def _default_bodies(self) -> list[CelestialBody]:
         return [self._create_body(definition) for definition in SOLAR_SYSTEM_PLANETS]

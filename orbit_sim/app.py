@@ -69,7 +69,7 @@ class GravityStudioApp:
         self.timeline_slider = self.timeline_strip.build_slider(
             *self.viewport,
             self.camera.layout.ui_scale,
-            self.simulation.simulation_days / self.simulation.timeline_range_days,
+            self.simulation.timeline_progress,
         )
         self.scene_buttons = self.scene_strip.build_buttons(
             self.viewport[0],
@@ -149,7 +149,7 @@ class GravityStudioApp:
         self.timeline_slider = self.timeline_strip.build_slider(
             *self.viewport,
             self.camera.layout.ui_scale,
-            self.simulation.simulation_days / self.simulation.timeline_range_days,
+            self.simulation.timeline_progress,
         )
         self.scene_buttons = self.scene_strip.build_buttons(
             self.viewport[0],
@@ -370,7 +370,7 @@ class GravityStudioApp:
         relative = (x_position - self.timeline_slider.track_rect.left) / max(1, self.timeline_slider.track_rect.width)
         clamped = max(0.0, min(1.0, relative))
         self.simulation.set_live_mode(False)
-        self.simulation.set_simulation_days(self.simulation.timeline_range_days * clamped)
+        self.simulation.set_timeline_progress(clamped)
 
     def should_draw_focus_badge(self) -> bool:
         return self.camera.scene_mode == "focus" or self.camera.zoom >= 1.65
