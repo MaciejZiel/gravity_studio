@@ -9,6 +9,7 @@ from orbit_sim.camera import SolarCamera
 from orbit_sim.config import SPACE_HAZE, STAR_CORE, STAR_GLOW
 from orbit_sim.models import CelestialBody
 from orbit_sim.planet_sphere import SpinningPlanetRenderer
+from orbit_sim.planet_textures import PlanetTextureLibrary
 
 
 class SceneRenderer:
@@ -17,6 +18,7 @@ class SceneRenderer:
         self.label_font: pygame.font.Font | None = None
         self.selected_label_font: pygame.font.Font | None = None
         self.focus_renderer = SpinningPlanetRenderer()
+        self.texture_library = PlanetTextureLibrary()
 
     def draw(
         self,
@@ -274,11 +276,31 @@ class SceneRenderer:
             ring_surface.set_clip(pygame.Rect(0, 0, ring_size, ring_size // 2))
         ellipse_rect = pygame.Rect(0, 0, ring_size, int(ring_size * 0.44))
         ellipse_rect.center = (ring_size // 2, ring_size // 2)
+        alpha_texture = self.texture_library.auxiliary_texture("saturn_ring_alpha", (512, 32))
 
-        for width_factor, alpha in ((0.2, 42), (0.14, 56), (0.08, 30)):
-            line_width = max(1, int(radius * width_factor))
-            color = (208, 194, 164, alpha)
-            pygame.draw.ellipse(ring_surface, color, ellipse_rect, line_width)
+        if alpha_texture is not None:
+            max_band = max(14, ring_size // 12)
+            inner_width = ellipse_rect.width * 0.42
+            outer_width = ellipse_rect.width * 0.96
+            for index in range(max_band):
+                t = index / max(1, max_band - 1)
+                alpha_sample = alpha_texture.get_at((min(alpha_texture.get_width() - 1, int(t * (alpha_texture.get_width() - 1))), alpha_texture.get_height() // 2))
+                alpha = max(10, int(alpha_sample.a * (0.22 if front else 0.16)))
+                band_width = int(inner_width + (outer_width - inner_width) * t)
+                ring_rect = pygame.Rect(0, 0, band_width, max(2, int(ellipse_rect.height * (0.64 + 0.18 * t))))
+                ring_rect.center = ellipse_rect.center
+                tint = (
+                    int(194 + 22 * t),
+                    int(180 + 18 * sin(t * 9.0)),
+                    int(152 + 20 * cos(t * 6.0)),
+                    alpha,
+                )
+                pygame.draw.ellipse(ring_surface, tint, ring_rect, max(1, ring_size // 140))
+        else:
+            for width_factor, alpha in ((0.2, 42), (0.14, 56), (0.08, 30)):
+                line_width = max(1, int(radius * width_factor))
+                color = (208, 194, 164, alpha)
+                pygame.draw.ellipse(ring_surface, color, ellipse_rect, line_width)
 
         ring_surface.set_clip(None)
         surface.blit(ring_surface, (center[0] - ring_size // 2, center[1] - ring_size // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
