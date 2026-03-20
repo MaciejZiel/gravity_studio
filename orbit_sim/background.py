@@ -26,6 +26,7 @@ class StarField:
         self.base_surface = pygame.Surface(size)
         self.base_surface.fill((3, 5, 10))
         self.haze_surface = pygame.Surface(size, pygame.SRCALPHA)
+        self.twinkle_surface = pygame.Surface(size, pygame.SRCALPHA)
         self.star_layers: list[tuple[float, pygame.Surface]] = []
         self.dynamic_stars: list[BackgroundStar] = []
         self._build_field()
@@ -36,16 +37,16 @@ class StarField:
         surface.blit(self.haze_surface, self._offset_point(parallax * 0.08))
         for factor, layer in self.star_layers:
             surface.blit(layer, self._offset_point(parallax * factor))
-        twinkle_surface = pygame.Surface(self.size, pygame.SRCALPHA)
+        self.twinkle_surface.fill((0, 0, 0, 0))
 
         for star in self.dynamic_stars:
             pulse = 0.78 + 0.22 * sin(elapsed_time * star.speed + star.phase)
             alpha = max(18, min(255, int(star.alpha * pulse)))
             x = int(star.x + parallax.x * star.parallax)
             y = int(star.y + parallax.y * star.parallax)
-            pygame.draw.circle(twinkle_surface, (*star.color, alpha), (x, y), star.radius)
+            pygame.draw.circle(self.twinkle_surface, (*star.color, alpha), (x, y), star.radius)
 
-        surface.blit(twinkle_surface, (0, 0))
+        surface.blit(self.twinkle_surface, (0, 0))
 
     def _build_field(self) -> None:
         width, height = self.size
