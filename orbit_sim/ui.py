@@ -498,6 +498,60 @@ class SceneStrip:
         self.button_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)), bold=True)
 
 
+class TourStrip:
+    def __init__(self) -> None:
+        self.scale = 0.0
+        self.button_font: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
+
+    def build_buttons(
+        self,
+        width: int,
+        ui_scale: float,
+        active_action: str | None,
+        presentation_mode: bool,
+    ) -> list[ControlButton]:
+        self._ensure_fonts(ui_scale)
+        labels = [
+            ("tour_grand", "Grand Tour", active_action == "tour_grand"),
+            ("tour_history", "History", active_action == "tour_history"),
+            ("toggle_presentation", "Presentation", presentation_mode),
+        ]
+        x = width - int(36 * ui_scale)
+        y = int(74 * ui_scale)
+        gap = int(8 * ui_scale)
+        buttons: list[ControlButton] = []
+        for action, label, active in reversed(labels):
+            button_width = max(int(94 * ui_scale), self.button_font.size(label)[0] + int(24 * ui_scale))
+            rect = pygame.Rect(x - button_width, y, button_width, int(32 * ui_scale))
+            buttons.append(ControlButton(action=action, label=label, rect=rect, active=active))
+            x -= button_width + gap
+        buttons.reverse()
+        return buttons
+
+    def draw(self, surface: pygame.Surface, buttons: list[ControlButton], ui_scale: float) -> None:
+        self._ensure_fonts(ui_scale)
+        for button in buttons:
+            fill = (9, 13, 21, 214)
+            border = (46, 54, 68, 230)
+            if button.active:
+                fill = (28, 38, 52, 240)
+                border = (124, 138, 164, 240)
+            button_surface = pygame.Surface(button.rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(button_surface, fill, button_surface.get_rect(), border_radius=int(14 * ui_scale))
+            pygame.draw.rect(button_surface, border, button_surface.get_rect(), width=1, border_radius=int(14 * ui_scale))
+            label_surface = render_cached(self._text_cache, self.button_font, button.label, (228, 232, 240))
+            button_surface.blit(label_surface, label_surface.get_rect(center=button_surface.get_rect().center))
+            surface.blit(button_surface, button.rect.topleft)
+
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.scale) < 0.01:
+            return
+        self.scale = ui_scale
+        self._text_cache.clear()
+        self.button_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)), bold=True)
+
+
 class DateShortcutStrip:
     def __init__(self) -> None:
         self.scale = 0.0
@@ -669,6 +723,51 @@ class TimelineStrip:
         self.label_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)), bold=True)
         self.meta_font = pygame.font.SysFont("segoeui", max(13, int(15 * ui_scale)))
         self.speed_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)), bold=True)
+
+
+class TourCaption:
+    def __init__(self) -> None:
+        self.scale = 0.0
+        self.eyebrow_font: pygame.font.Font | None = None
+        self.title_font: pygame.font.Font | None = None
+        self.body_font: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
+
+    def draw(
+        self,
+        surface: pygame.Surface,
+        title: str,
+        caption: str,
+        progress: float,
+        ui_scale: float,
+    ) -> None:
+        self._ensure_fonts(ui_scale)
+        panel_width = int(min(surface.get_width() * 0.42, 660 * ui_scale))
+        panel_height = int(122 * ui_scale)
+        panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (8, 12, 20, 220), panel.get_rect(), border_radius=int(20 * ui_scale))
+        pygame.draw.rect(panel, (50, 60, 76, 230), panel.get_rect(), width=1, border_radius=int(20 * ui_scale))
+        eyebrow = render_cached(self._text_cache, self.eyebrow_font, "CINEMATIC TOUR", (132, 142, 160))
+        title_surface = render_cached(self._text_cache, self.title_font, title, (232, 237, 244))
+        body_surface = render_cached(self._text_cache, self.body_font, caption, (196, 204, 216))
+        panel.blit(eyebrow, (int(22 * ui_scale), int(18 * ui_scale)))
+        panel.blit(title_surface, (int(22 * ui_scale), int(40 * ui_scale)))
+        panel.blit(body_surface, (int(22 * ui_scale), int(70 * ui_scale)))
+        track_rect = pygame.Rect(int(22 * ui_scale), panel_height - int(18 * ui_scale), panel_width - int(44 * ui_scale), max(4, int(6 * ui_scale)))
+        pygame.draw.rect(panel, (34, 42, 56), track_rect, border_radius=track_rect.height // 2)
+        fill_rect = track_rect.copy()
+        fill_rect.width = max(8, int(track_rect.width * progress))
+        pygame.draw.rect(panel, (132, 156, 188), fill_rect, border_radius=track_rect.height // 2)
+        surface.blit(panel, (surface.get_width() // 2 - panel_width // 2, surface.get_height() - panel_height - int(38 * ui_scale)))
+
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.scale) < 0.01:
+            return
+        self.scale = ui_scale
+        self._text_cache.clear()
+        self.eyebrow_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)), bold=True)
+        self.title_font = pygame.font.SysFont("segoeui", max(18, int(24 * ui_scale)), bold=True)
+        self.body_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)))
 
 
 class EventHighlight:
