@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from math import sqrt, tau
+from math import tau
 
 from orbit_sim.models import CelestialBody
 from orbit_sim.solar_system import PlanetDefinition, SOLAR_SYSTEM_PLANETS
@@ -27,8 +27,6 @@ class OrbitalSimulation:
     def _create_body(self, definition: PlanetDefinition, index: int, starting_angle: float) -> CelestialBody:
         return CelestialBody(
             name=definition.name,
-            orbit_radius=self._orbit_radius_for_distance(definition.distance_au, index),
-            radius=self._planet_radius_for_km(definition.radius_km),
             angular_speed=self._angular_speed_for_period(definition.orbital_period_days),
             color=definition.color,
             accent_color=definition.accent_color,
@@ -40,13 +38,6 @@ class OrbitalSimulation:
             fact=definition.fact,
             has_rings=definition.has_rings,
         )
-
-    def _orbit_radius_for_distance(self, distance_au: float, index: int) -> float:
-        return 68 + 72 * sqrt(distance_au) + index * 14
-
-    def _planet_radius_for_km(self, radius_km: float) -> float:
-        earth_radii = radius_km / 6371.0
-        return 4.5 + 5.0 * (earth_radii ** 0.38)
 
     def _angular_speed_for_period(self, orbital_period_days: float) -> float:
         relative_years = orbital_period_days / 365.25
