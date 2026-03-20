@@ -223,6 +223,58 @@ class HudChrome:
         surface.blit(badge, (int(42 * ui_scale), int(154 * ui_scale)))
 
 
+class FocusBadge:
+    def __init__(self) -> None:
+        self.scale = 0.0
+        self.eyebrow_font: pygame.font.Font | None = None
+        self.title_font: pygame.font.Font | None = None
+        self.label_font: pygame.font.Font | None = None
+        self.value_font: pygame.font.Font | None = None
+
+    def draw(
+        self,
+        surface: pygame.Surface,
+        body: CelestialBody,
+        local_time_label: str,
+        simulation_time_label: str,
+        ui_scale: float,
+    ) -> None:
+        self._ensure_fonts(ui_scale)
+        panel_width = int(272 * ui_scale)
+        panel_height = int(126 * ui_scale)
+        panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (8, 12, 19, 224), panel.get_rect(), border_radius=int(22 * ui_scale))
+        pygame.draw.rect(panel, (50, 58, 72, 228), panel.get_rect(), width=1, border_radius=int(22 * ui_scale))
+
+        eyebrow = self.eyebrow_font.render("LIVE CLOSE-UP", True, (138, 148, 166))
+        title = self.title_font.render(body.name, True, (232, 236, 242))
+        panel.blit(eyebrow, (int(20 * ui_scale), int(18 * ui_scale)))
+        panel.blit(title, (int(20 * ui_scale), int(38 * ui_scale)))
+
+        self._draw_time_row(panel, "Local", local_time_label, int(74 * ui_scale), ui_scale)
+        self._draw_time_row(panel, "Sim", simulation_time_label, int(98 * ui_scale), ui_scale)
+
+        x = int(42 * ui_scale)
+        y = int(surface.get_height() * 0.73)
+        surface.blit(panel, (x, y))
+
+    def _draw_time_row(self, panel: pygame.Surface, label: str, value: str, top: int, ui_scale: float) -> None:
+        label_surface = self.label_font.render(label, True, (128, 138, 156))
+        value_surface = self.value_font.render(value, True, (222, 228, 236))
+        panel.blit(label_surface, (int(20 * ui_scale), top))
+        panel.blit(value_surface, (panel.get_width() - value_surface.get_width() - int(20 * ui_scale), top - int(1 * ui_scale)))
+
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.scale) < 0.01:
+            return
+
+        self.scale = ui_scale
+        self.eyebrow_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)), bold=True)
+        self.title_font = pygame.font.SysFont("segoeui", max(20, int(24 * ui_scale)), bold=True)
+        self.label_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
+        self.value_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)))
+
+
 class ControlBar:
     def __init__(self) -> None:
         self.scale = 0.0

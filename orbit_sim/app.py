@@ -17,7 +17,7 @@ from orbit_sim.config import (
 from orbit_sim.models import CelestialBody
 from orbit_sim.rendering import SceneRenderer
 from orbit_sim.simulation import OrbitalSimulation
-from orbit_sim.ui import ControlBar, HudChrome, InfoPanel, SceneStrip, TimelineStrip
+from orbit_sim.ui import ControlBar, FocusBadge, HudChrome, InfoPanel, SceneStrip, TimelineStrip
 
 
 class GravityStudioApp:
@@ -32,6 +32,7 @@ class GravityStudioApp:
         self.simulation = OrbitalSimulation()
         self.hud = HudChrome()
         self.info_panel = InfoPanel()
+        self.focus_badge = FocusBadge()
         self.control_bar = ControlBar()
         self.scene_strip = SceneStrip()
         self.timeline_strip = TimelineStrip()
@@ -152,6 +153,7 @@ class GravityStudioApp:
                 self.notification_text = None
 
     def render(self) -> None:
+        local_now = datetime.now().astimezone()
         self.screen.fill(SPACE_COLOR)
         self.star_field.draw(self.screen, self.elapsed_time)
         self.scene_renderer.draw(
@@ -166,8 +168,9 @@ class GravityStudioApp:
             self.show_labels,
         )
         if not self.ui_hidden:
-            self.draw_hud()
+            self.draw_hud(local_now)
             self.draw_info_panel()
+            self.draw_focus_badge(local_now)
             self.draw_controls()
             self.draw_timeline()
             self.draw_scene_buttons()
@@ -192,8 +195,7 @@ class GravityStudioApp:
     def draw_controls(self) -> None:
         self.control_bar.draw(self.screen, self.control_buttons, self.hovered_action, self.camera.layout.ui_scale)
 
-    def draw_hud(self) -> None:
-        local_now = datetime.now().astimezone()
+    def draw_hud(self, local_now: datetime) -> None:
         self.hud.draw(
             self.screen,
             self.paused,
@@ -203,6 +205,18 @@ class GravityStudioApp:
             self.simulation.time_speed_label,
             local_now.strftime("%H:%M:%S"),
             local_now.strftime("%Z"),
+            self.camera.layout.ui_scale,
+        )
+
+    def draw_focus_badge(self, local_now: datetime) -> None:
+        if self.selected_body is None or not self.should_draw_focus_badge():
+            return
+
+        self.focus_badge.draw(
+            self.screen,
+            self.selected_body,
+            local_now.strftime("%H:%M:%S"),
+            self.simulation.current_datetime().strftime("%H:%M:%S"),
             self.camera.layout.ui_scale,
         )
 
@@ -318,6 +332,9 @@ class GravityStudioApp:
         relative = (x_position - self.timeline_slider.track_rect.left) / max(1, self.timeline_slider.track_rect.width)
         clamped = max(0.0, min(1.0, relative))
         self.simulation.set_simulation_days(self.simulation.timeline_range_days * clamped)
+
+    def should_draw_focus_badge(self) -> bool:
+        return self.camera.scene_mode == "focus" or self.camera.zoom >= 1.65
 
     def _detect_viewport(self) -> tuple[int, int]:
         info = pygame.display.Info()
