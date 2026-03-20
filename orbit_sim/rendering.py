@@ -93,15 +93,15 @@ class SceneRenderer:
         selected_body: CelestialBody | None,
     ) -> None:
         orbit_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        center = (int(camera.layout.scene_center.x), int(camera.layout.scene_center.y))
 
         for body in bodies:
-            scaled_radius = int(camera.orbit_radius(body))
             base_color = (112, 121, 138, 24)
             if body is selected_body:
                 base_color = (194, 203, 214, 52)
 
-            pygame.draw.circle(orbit_surface, base_color, center, scaled_radius, 1)
+            orbit_points = [self._point(point) for point in camera.project_orbit_points(body, steps=160)]
+            if len(orbit_points) > 2:
+                pygame.draw.aalines(orbit_surface, base_color, False, orbit_points)
 
         surface.blit(orbit_surface, (0, 0))
 
@@ -114,7 +114,7 @@ class SceneRenderer:
         hovered_body: CelestialBody | None,
         selected_body: CelestialBody | None,
     ) -> None:
-        for body in bodies:
+        for body in sorted(bodies, key=camera.body_depth):
             position = camera.body_position(body)
             screen_pos = (int(position.x), int(position.y))
             planet_radius = max(3, int(camera.planet_radius(body)))

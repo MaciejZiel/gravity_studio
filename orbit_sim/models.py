@@ -30,10 +30,11 @@ class CelestialBody:
     def direction(self) -> Vector2:
         return Vector2(cos(self.angle), sin(self.angle))
 
-    def orbital_position(self) -> Vector3:
+    def orbital_position(self, angle: float | None = None) -> Vector3:
+        orbital_angle = self.angle if angle is None else angle
         radial_distance = self.distance_au * (1.0 - self.eccentricity * self.eccentricity)
-        radial_distance /= max(0.18, 1.0 + self.eccentricity * cos(self.angle - radians(self.periapsis_deg)))
-        true_longitude = self.angle
+        radial_distance /= max(0.18, 1.0 + self.eccentricity * cos(orbital_angle - radians(self.periapsis_deg)))
+        true_longitude = orbital_angle
         ascending_node = radians(self.ascending_node_deg)
         inclination = radians(self.inclination_deg)
 

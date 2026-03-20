@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import log1p, sin
+from math import cos, log1p, radians, sin
 
-from pygame import Vector2
+from pygame import Vector2, Vector3
 
 from orbit_sim.config import REFERENCE_HEIGHT
 from orbit_sim.models import CelestialBody
@@ -11,6 +11,7 @@ from orbit_sim.models import CelestialBody
 
 MAX_SOLAR_DISTANCE_AU = 30.05
 EARTH_RADIUS_KM = 6371.0
+VIEW_TILT_DEG = 24.0
 
 
 @dataclass(frozen=True)
@@ -127,7 +128,18 @@ class SolarCamera:
         self.layout = self._build_layout(self.current_center, self.current_span_factor)
 
     def body_position(self, body: CelestialBody) -> Vector2:
-        return self.layout.scene_center + body.direction() * self.orbit_radius(body)
+        return self.layout.scene_center + self.project_orbital_offset(body)
+
+    def body_depth(self, body: CelestialBody) -> float:
+        return self.projected_body_state(body)[1]
+
+    def project_orbit_points(self, body: CelestialBody, steps: int = 180) -> list[Vector2]:
+        points: list[Vector2] = []
+        for index in range(steps + 1):
+            angle = (index / steps) * 6.283185307179586
+            projected = self._project_body_vector(body.orbital_position(angle), self.zoom, self.current_compression, self.current_span_factor)
+            points.append(self.layout.scene_center + projected.xy)
+        return points
 
     def orbit_radius(self, body: CelestialBody) -> float:
         return self._orbit_radius_for_distance(body.distance_au, self.zoom, self.current_compression, self.current_span_factor)
@@ -159,13 +171,13 @@ class SolarCamera:
         base_center = self._base_scene_center(preset)
         if self.scene_mode == "focus" and self.focus_body is not None:
             desired_anchor = Vector2(self.viewport[0] * 0.66, self.viewport[1] * 0.56)
-            orbit_radius = self._orbit_radius_for_distance(
-                self.focus_body.distance_au,
+            projected = self._project_body_vector(
+                self.focus_body.orbital_position(),
                 self.user_zoom * self.target_scene_zoom,
                 self.target_compression,
                 self.target_span_factor,
             )
-            return desired_anchor - self.focus_body.direction() * orbit_radius
+            return desired_anchor - projected.xy
 
         drift_amount = 8.0 * self.layout.ui_scale
         drift = Vector2(
@@ -187,3 +199,26 @@ class SolarCamera:
         layout = self._build_layout(self.current_center, orbit_span_factor)
         normalized = log1p(distance_au * compression) / log1p(MAX_SOLAR_DISTANCE_AU * compression)
         return (layout.inner_orbit_radius + normalized * layout.orbit_span) * zoom
+
+    def projected_body_state(self, body: CelestialBody) -> tuple[Vector2, float]:
+        projected = self._project_body_vector(body.orbital_position(), self.zoom, self.current_compression, self.current_span_factor)
+        return self.layout.scene_center + projected.xy, projected.z
+
+    def project_orbital_offset(self, body: CelestialBody) -> Vector2:
+        projected = self._project_body_vector(body.orbital_position(), self.zoom, self.current_compression, self.current_span_factor)
+        return projected.xy
+
+    def _project_body_vector(
+        self,
+        orbital_position: Vector3,
+        zoom: float,
+        compression: float,
+        orbit_span_factor: float,
+    ) -> Vector3:
+        distance = max(0.08, orbital_position.length())
+        scale_radius = self._orbit_radius_for_distance(distance, zoom, compression, orbit_span_factor)
+        scaled = orbital_position.normalize() * scale_radius if orbital_position.length_squared() > 0 else Vector3()
+        tilt = radians(VIEW_TILT_DEG)
+        projected_y = scaled.y * cos(tilt) - scaled.z * sin(tilt)
+        depth = scaled.y * sin(tilt) + scaled.z * cos(tilt)
+        return Vector3(scaled.x, projected_y, depth)
