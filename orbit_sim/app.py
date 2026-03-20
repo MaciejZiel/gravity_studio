@@ -193,6 +193,7 @@ class GravityStudioApp:
         self.control_bar.draw(self.screen, self.control_buttons, self.hovered_action, self.camera.layout.ui_scale)
 
     def draw_hud(self) -> None:
+        local_now = datetime.now().astimezone()
         self.hud.draw(
             self.screen,
             self.paused,
@@ -200,6 +201,8 @@ class GravityStudioApp:
             self.camera.scale_mode,
             self.camera.scene_label,
             self.simulation.time_speed_label,
+            local_now.strftime("%H:%M:%S"),
+            local_now.strftime("%Z"),
             self.camera.layout.ui_scale,
         )
 

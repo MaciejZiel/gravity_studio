@@ -145,6 +145,7 @@ class HudChrome:
         self.subtitle_font: pygame.font.Font | None = None
         self.meta_font: pygame.font.Font | None = None
         self.note_font: pygame.font.Font | None = None
+        self.clock_font: pygame.font.Font | None = None
 
     def draw(
         self,
@@ -154,6 +155,8 @@ class HudChrome:
         scale_mode: str,
         scene_label: str,
         time_speed_label: str,
+        local_time_label: str,
+        timezone_label: str,
         ui_scale: float,
     ) -> None:
         self._ensure_fonts(ui_scale)
@@ -171,6 +174,7 @@ class HudChrome:
         surface.blit(subtitle, (margin_x, int(70 * ui_scale)))
         surface.blit(meta, (margin_x, int(102 * ui_scale)))
         surface.blit(hint, (margin_x, int(124 * ui_scale)))
+        self._draw_clock_badge(surface, local_time_label, timezone_label, ui_scale)
 
     def _ensure_fonts(self, ui_scale: float) -> None:
         if abs(ui_scale - self.scale) < 0.01:
@@ -181,6 +185,7 @@ class HudChrome:
         self.subtitle_font = pygame.font.SysFont("segoeui", max(13, int(15 * ui_scale)))
         self.meta_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
         self.note_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)), bold=True)
+        self.clock_font = pygame.font.SysFont("segoeui", max(16, int(20 * ui_scale)), bold=True)
 
     def draw_notification(self, surface: pygame.Surface, text: str, timer: float, ui_scale: float) -> None:
         self._ensure_fonts(ui_scale)
@@ -195,6 +200,27 @@ class HudChrome:
         pygame.draw.rect(panel, (66, 74, 88, int(alpha * 0.95)), panel.get_rect(), width=1, border_radius=int(16 * ui_scale))
         panel.blit(label_surface, (padding_x, padding_y))
         surface.blit(panel, (surface.get_width() - width - int(36 * ui_scale), surface.get_height() - height - int(32 * ui_scale)))
+
+    def _draw_clock_badge(
+        self,
+        surface: pygame.Surface,
+        local_time_label: str,
+        timezone_label: str,
+        ui_scale: float,
+    ) -> None:
+        badge_width = int(184 * ui_scale)
+        badge_height = int(68 * ui_scale)
+        badge = pygame.Surface((badge_width, badge_height), pygame.SRCALPHA)
+        pygame.draw.rect(badge, (8, 12, 19, 214), badge.get_rect(), border_radius=int(18 * ui_scale))
+        pygame.draw.rect(badge, (48, 56, 68, 222), badge.get_rect(), width=1, border_radius=int(18 * ui_scale))
+
+        label = self.meta_font.render("LOCAL CLOCK", True, (124, 136, 156))
+        value = self.clock_font.render(local_time_label, True, (232, 236, 241))
+        timezone = self.meta_font.render(timezone_label, True, (110, 120, 138))
+        badge.blit(label, (int(16 * ui_scale), int(12 * ui_scale)))
+        badge.blit(value, (int(16 * ui_scale), int(28 * ui_scale)))
+        badge.blit(timezone, (badge_width - timezone.get_width() - int(16 * ui_scale), int(14 * ui_scale)))
+        surface.blit(badge, (int(42 * ui_scale), int(154 * ui_scale)))
 
 
 class ControlBar:
