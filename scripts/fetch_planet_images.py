@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import shutil
 import sys
+import time
 from urllib.request import Request, urlopen
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -16,12 +17,17 @@ from orbit_sim.planet_assets import PLANET_TEXTURE_SOURCES
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--refresh", action="store_true")
+    parser.add_argument("--names", nargs="*")
     args = parser.parse_args()
 
     output_dir = Path("assets/planets")
     output_dir.mkdir(parents=True, exist_ok=True)
+    selected_names = set(args.names or PLANET_TEXTURE_SOURCES.keys())
 
     for name, config in PLANET_TEXTURE_SOURCES.items():
+        if name not in selected_names:
+            continue
+
         output_path = output_dir / config["filename"]
         if output_path.exists() and not args.refresh:
             print(f"skip {name}: {output_path.name}")
@@ -31,6 +37,7 @@ def main() -> None:
         request = Request(config["url"], headers={"User-Agent": "GravityStudio/1.0"})
         with urlopen(request) as response, output_path.open("wb") as output_file:
             shutil.copyfileobj(response, output_file)
+        time.sleep(1.2)
 
 
 if __name__ == "__main__":
