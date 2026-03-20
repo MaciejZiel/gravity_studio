@@ -45,6 +45,7 @@ class SpinningPlanetRenderer:
         texture = self.texture_library.map_texture(body.name, 1024)
         if texture is None:
             return pygame.Surface((diameter, diameter), pygame.SRCALPHA)
+        luminance_rows = self.texture_library.map_luminance(body.name, 1024)
         earth_clouds = self.texture_library.auxiliary_texture("earth_clouds", (texture.get_width(), texture.get_height()))
         earth_night = self.texture_library.auxiliary_texture("earth_night", (texture.get_width(), texture.get_height()))
 
@@ -80,7 +81,7 @@ class SpinningPlanetRenderer:
                 source_x = min(texture_width - 1, int(u * (texture_width - 1)))
                 source_y = min(texture_height - 1, int(v * (texture_height - 1)))
                 source_color = texture.get_at((source_x, source_y))
-                bump = self._bump_vector(texture, source_x, source_y, bump_strength)
+                bump = self._bump_vector(luminance_rows, texture_width, texture_height, source_x, source_y, bump_strength)
                 shaded_normal = (surface_normal + bump).normalize()
                 diffuse = max(0.0, shaded_normal.dot(light_direction))
                 lit_color = self._shade_color(body, source_color, diffuse)
@@ -197,14 +198,22 @@ class SpinningPlanetRenderer:
             return 0.08
         return 0.04
 
-    def _bump_vector(self, texture: pygame.Surface, x: int, y: int, strength: float) -> Vector3:
-        if strength <= 0.0:
+    def _bump_vector(
+        self,
+        luminance_rows: tuple[bytearray, ...] | None,
+        texture_width: int,
+        texture_height: int,
+        x: int,
+        y: int,
+        strength: float,
+    ) -> Vector3:
+        if strength <= 0.0 or luminance_rows is None:
             return Vector3()
 
-        left = self._luminance(texture.get_at((max(0, x - 1), y)))
-        right = self._luminance(texture.get_at((min(texture.get_width() - 1, x + 1), y)))
-        up = self._luminance(texture.get_at((x, max(0, y - 1))))
-        down = self._luminance(texture.get_at((x, min(texture.get_height() - 1, y + 1))))
+        left = luminance_rows[y][max(0, x - 1)] / 255.0
+        right = luminance_rows[y][min(texture_width - 1, x + 1)] / 255.0
+        up = luminance_rows[max(0, y - 1)][x] / 255.0
+        down = luminance_rows[min(texture_height - 1, y + 1)][x] / 255.0
         return Vector3((left - right) * strength, (down - up) * strength, 0.0)
 
     def _luminance(self, color: pygame.Color) -> float:

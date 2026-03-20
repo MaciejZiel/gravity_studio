@@ -12,6 +12,7 @@ class PlanetTextureLibrary:
     def __init__(self) -> None:
         self._source_cache: dict[str, pygame.Surface | None] = {}
         self._map_cache: dict[tuple[str, int], pygame.Surface | None] = {}
+        self._luminance_cache: dict[tuple[str, int], tuple[bytearray, ...] | None] = {}
         self._aux_cache: dict[str, pygame.Surface | None] = {}
         self._scaled_aux_cache: dict[tuple[str, int, int], pygame.Surface | None] = {}
 
@@ -32,7 +33,26 @@ class PlanetTextureLibrary:
 
     def clear_scaled_cache(self) -> None:
         self._map_cache.clear()
+        self._luminance_cache.clear()
         self._scaled_aux_cache.clear()
+
+    def map_luminance(self, body_name: str, width: int) -> tuple[bytearray, ...] | None:
+        safe_width = max(256, int(width))
+        cache_key = (body_name, safe_width)
+        if cache_key not in self._luminance_cache:
+            texture = self.map_texture(body_name, safe_width)
+            if texture is None:
+                self._luminance_cache[cache_key] = None
+            else:
+                rows = []
+                for y in range(texture.get_height()):
+                    row = bytearray(texture.get_width())
+                    for x in range(texture.get_width()):
+                        color = texture.get_at((x, y))
+                        row[x] = int(color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722)
+                    rows.append(row)
+                self._luminance_cache[cache_key] = tuple(rows)
+        return self._luminance_cache[cache_key]
 
     def auxiliary_texture(self, key: str, size: tuple[int, int]) -> pygame.Surface | None:
         safe_width = max(128, int(size[0]))
