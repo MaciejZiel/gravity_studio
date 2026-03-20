@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime
+from math import atan2, degrees
 from pathlib import Path
 
 import pygame
@@ -20,7 +21,7 @@ from orbit_sim.models import CelestialBody
 from orbit_sim.rendering import SceneRenderer
 from orbit_sim.settings import StudioSettings, StudioSettingsStore
 from orbit_sim.simulation import OrbitalSimulation
-from orbit_sim.ui import ControlBar, DateShortcutStrip, FocusBadge, HudChrome, InfoPanel, SceneStrip, TimelineStrip
+from orbit_sim.ui import ControlBar, DateShortcutStrip, EventHighlight, FocusBadge, HudChrome, InfoPanel, SceneStrip, SkyContextStrip, TimelineStrip
 
 
 class GravityStudioApp:
@@ -44,9 +45,11 @@ class GravityStudioApp:
         self.hud = HudChrome()
         self.info_panel = InfoPanel()
         self.focus_badge = FocusBadge()
+        self.event_highlight = EventHighlight()
         self.control_bar = ControlBar()
         self.scene_strip = SceneStrip()
         self.date_shortcuts = DateShortcutStrip()
+        self.sky_context = SkyContextStrip()
         self.timeline_strip = TimelineStrip()
         self.scene_renderer = SceneRenderer()
         self.elapsed_time = 0.0
@@ -58,6 +61,7 @@ class GravityStudioApp:
         self.show_orbits = self.settings.show_orbits
         self.show_labels = self.settings.show_labels
         self.show_missions = self.settings.show_missions
+        self.show_sky = self.settings.show_sky
         self.ui_hidden = self.settings.ui_hidden
         self.notification_text: str | None = None
         self.notification_timer = 0.0
@@ -179,7 +183,10 @@ class GravityStudioApp:
             self.draw_controls()
             if self.camera.scene_mode != "focus":
                 self.draw_date_shortcuts()
+                self.draw_event_highlight()
                 self.draw_timeline()
+                if self.show_sky:
+                    self.draw_sky_context()
             self.draw_scene_buttons()
         self.draw_intro_fade()
         self.draw_notification()
@@ -244,6 +251,14 @@ class GravityStudioApp:
     def draw_date_shortcuts(self) -> None:
         self.date_shortcuts.draw(self.screen, self.date_buttons, self.camera.layout.ui_scale)
 
+    def draw_event_highlight(self) -> None:
+        bookmark = self.active_bookmark()
+        if bookmark is not None and bookmark.action != "jump_now":
+            self.event_highlight.draw(self.screen, bookmark, self.camera.layout.ui_scale)
+
+    def draw_sky_context(self) -> None:
+        self.sky_context.draw(self.screen, self.sky_context_markers(), self.camera.layout.ui_scale)
+
     def action_at_screen_position(self, position: tuple[int, int]) -> str | None:
         if self.ui_hidden:
             return None
@@ -272,6 +287,8 @@ class GravityStudioApp:
             self.show_labels = not self.show_labels
         elif action == "toggle_missions":
             self.show_missions = not self.show_missions
+        elif action == "toggle_sky":
+            self.show_sky = not self.show_sky
         elif action == "toggle_sound":
             enabled = self.settings.master_volume == 0.0
             self.settings.master_volume = 0.42 if enabled else 0.0
@@ -316,6 +333,8 @@ class GravityStudioApp:
             self.handle_action("toggle_labels")
         elif event.key == pygame.K_m:
             self.handle_action("toggle_missions")
+        elif event.key == pygame.K_k:
+            self.handle_action("toggle_sky")
         elif event.key == pygame.K_h:
             self.ui_hidden = not self.ui_hidden
         elif event.key == pygame.K_p:
@@ -390,14 +409,38 @@ class GravityStudioApp:
         return self.camera.scene_mode == "focus" or self.camera.zoom >= 1.65
 
     def active_jump_action(self) -> str | None:
+        bookmark = self.active_bookmark()
+        return None if bookmark is None else bookmark.action
+
+    def active_bookmark(self):
         if self.simulation.live_mode:
-            return "jump_now"
+            for bookmark in self.simulation.bookmarks():
+                if bookmark.action == "jump_now":
+                    return bookmark
+            return None
 
         current = self.simulation.current_datetime()
         for bookmark in self.simulation.bookmarks()[1:]:
             if abs((bookmark.moment - current).total_seconds()) <= 3600 * 12:
-                return bookmark.action
+                return bookmark
         return None
+
+    def sky_context_markers(self) -> list[tuple[str, float, tuple[int, int, int]]]:
+        earth = self.simulation.body_named("Earth")
+        if earth is None:
+            return []
+
+        markers = []
+        earth_position = earth.orbital_position()
+        sun_vector = -earth_position
+        markers.append(("Sun", (degrees(atan2(sun_vector.y, sun_vector.x)) + 360.0) % 360.0, (238, 210, 154)))
+        for body in self.simulation.bodies:
+            if body.name == "Earth":
+                continue
+            relative = body.orbital_position() - earth_position
+            longitude = (degrees(atan2(relative.y, relative.x)) + 360.0) % 360.0
+            markers.append((body.name, longitude, body.accent_color))
+        return markers
 
     def _detect_viewport(self) -> tuple[int, int]:
         info = pygame.display.Info()
@@ -438,6 +481,7 @@ class GravityStudioApp:
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
             show_missions=self.show_missions,
+            show_sky=self.show_sky,
             scale_mode=self.camera.scale_mode,
             last_scene=self.camera.scene_mode,
             ui_hidden=self.ui_hidden,
@@ -460,6 +504,7 @@ class GravityStudioApp:
             self.show_orbits,
             self.show_labels,
             self.show_missions,
+            self.show_sky,
             self.camera.scale_mode,
             self.camera.scene_mode,
             self.simulation.time_speed_index,
@@ -481,6 +526,7 @@ class GravityStudioApp:
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
             show_missions=self.show_missions,
+            show_sky=self.show_sky,
             scale_mode=self.camera.scale_mode,
             focus_mode=self.camera.scene_mode == "focus",
         )
@@ -504,5 +550,6 @@ class GravityStudioApp:
         self.date_buttons = self.date_shortcuts.build_buttons(
             *self.viewport,
             ui_scale,
+            self.simulation.bookmarks(),
             self.active_jump_action(),
         )

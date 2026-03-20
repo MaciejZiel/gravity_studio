@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pygame import Vector2
+
 import pygame
 
 from orbit_sim.models import CelestialBody
+from orbit_sim.simulation import TimelineBookmark
 
 
 @dataclass
@@ -341,6 +344,7 @@ class ControlBar:
         show_orbits: bool,
         show_labels: bool,
         show_missions: bool,
+        show_sky: bool,
         scale_mode: str,
         focus_mode: bool,
     ) -> list[ControlButton]:
@@ -352,6 +356,7 @@ class ControlBar:
                 ("toggle_pause", "Resume" if paused else "Pause", paused),
                 ("toggle_sound", "Sound", sound_enabled),
                 ("toggle_missions", "Missions", show_missions),
+                ("toggle_sky", "Sky", show_sky),
                 ("capture_clean", "Clean Shot", False),
                 ("reset", "Reset", False),
             ]
@@ -363,6 +368,7 @@ class ControlBar:
                 ("toggle_orbits", "Orbits", show_orbits),
                 ("toggle_labels", "Labels", show_labels),
                 ("toggle_missions", "Missions", show_missions),
+                ("toggle_sky", "Sky", show_sky),
                 ("toggle_scale", f"Scale: {scale_mode.title()}", scale_mode == "expanded"),
                 ("reset", "Reset", False),
             ]
@@ -499,15 +505,16 @@ class DateShortcutStrip:
         self.label_font: pygame.font.Font | None = None
         self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
 
-    def build_buttons(self, width: int, height: int, ui_scale: float, active_action: str | None) -> list[ControlButton]:
+    def build_buttons(
+        self,
+        width: int,
+        height: int,
+        ui_scale: float,
+        bookmarks: list[TimelineBookmark],
+        active_action: str | None,
+    ) -> list[ControlButton]:
         self._ensure_fonts(ui_scale)
-        labels = [
-            ("jump_now", "Now"),
-            ("jump_equinox", "Equinox"),
-            ("jump_solstice", "Solstice"),
-            ("jump_apollo", "Apollo 11"),
-            ("jump_voyager", "Voyager 1"),
-        ]
+        labels = [(bookmark.action, bookmark.label) for bookmark in bookmarks]
         y = height - int(170 * ui_scale)
         x = int(width * 0.5) - int(340 * ui_scale)
         gap = int(8 * ui_scale)
@@ -662,3 +669,97 @@ class TimelineStrip:
         self.label_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)), bold=True)
         self.meta_font = pygame.font.SysFont("segoeui", max(13, int(15 * ui_scale)))
         self.speed_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)), bold=True)
+
+
+class EventHighlight:
+    def __init__(self) -> None:
+        self.scale = 0.0
+        self.eyebrow_font: pygame.font.Font | None = None
+        self.title_font: pygame.font.Font | None = None
+        self.body_font: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
+
+    def draw(self, surface: pygame.Surface, bookmark: TimelineBookmark, ui_scale: float) -> None:
+        self._ensure_fonts(ui_scale)
+        panel_width = int(420 * ui_scale)
+        panel_height = int(88 * ui_scale)
+        panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (8, 12, 19, 214), panel.get_rect(), border_radius=int(18 * ui_scale))
+        pygame.draw.rect(panel, (52, 58, 72, 224), panel.get_rect(), width=1, border_radius=int(18 * ui_scale))
+        eyebrow = render_cached(self._text_cache, self.eyebrow_font, "ASTRONOMY EVENT", (126, 138, 156))
+        title = render_cached(self._text_cache, self.title_font, bookmark.label, (230, 236, 242))
+        body = render_cached(self._text_cache, self.body_font, bookmark.description, (190, 198, 210))
+        panel.blit(eyebrow, (int(18 * ui_scale), int(12 * ui_scale)))
+        panel.blit(title, (int(18 * ui_scale), int(30 * ui_scale)))
+        panel.blit(body, (int(18 * ui_scale), int(54 * ui_scale)))
+        surface.blit(panel, (int(42 * ui_scale), surface.get_height() - panel_height - int(218 * ui_scale)))
+
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.scale) < 0.01:
+            return
+        self.scale = ui_scale
+        self._text_cache.clear()
+        self.eyebrow_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)), bold=True)
+        self.title_font = pygame.font.SysFont("segoeui", max(16, int(18 * ui_scale)), bold=True)
+        self.body_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
+
+
+class SkyContextStrip:
+    def __init__(self) -> None:
+        self.scale = 0.0
+        self.label_font: pygame.font.Font | None = None
+        self.meta_font: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple[int, ...]], pygame.Surface] = {}
+
+    def draw(
+        self,
+        surface: pygame.Surface,
+        markers: list[tuple[str, float, tuple[int, int, int]]],
+        ui_scale: float,
+    ) -> None:
+        if not markers:
+            return
+
+        self._ensure_fonts(ui_scale)
+        panel_width = int(min(surface.get_width() * 0.34, 540 * ui_scale))
+        panel_height = int(116 * ui_scale)
+        x = surface.get_width() - panel_width - int(42 * ui_scale)
+        y = surface.get_height() - panel_height - int(198 * ui_scale)
+        panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (8, 11, 18, 214), panel.get_rect(), border_radius=int(18 * ui_scale))
+        pygame.draw.rect(panel, (46, 54, 68, 224), panel.get_rect(), width=1, border_radius=int(18 * ui_scale))
+
+        title = render_cached(self._text_cache, self.label_font, "EARTH SKY CONTEXT", (128, 138, 156))
+        meta = render_cached(self._text_cache, self.meta_font, "Approximate ecliptic longitudes as seen from Earth", (94, 104, 124))
+        panel.blit(title, (int(18 * ui_scale), int(12 * ui_scale)))
+        panel.blit(meta, (int(18 * ui_scale), int(30 * ui_scale)))
+
+        track_left = int(24 * ui_scale)
+        track_right = panel_width - int(24 * ui_scale)
+        track_y = int(80 * ui_scale)
+        pygame.draw.line(panel, (56, 66, 84), (track_left, track_y), (track_right, track_y), 2)
+
+        zodiac = ("Ar", "Ta", "Ge", "Ca", "Le", "Vi", "Li", "Sc", "Sg", "Cp", "Aq", "Pi")
+        for index, label in enumerate(zodiac):
+            tick_x = track_left + int((track_right - track_left) * index / 11)
+            pygame.draw.line(panel, (48, 58, 72), (tick_x, track_y - 8), (tick_x, track_y + 8), 1)
+            tag = render_cached(self._text_cache, self.meta_font, label, (100, 112, 134))
+            panel.blit(tag, (tick_x - tag.get_width() // 2, track_y + int(12 * ui_scale)))
+
+        for name, longitude_deg, color in markers:
+            ratio = (longitude_deg % 360.0) / 360.0
+            marker_x = track_left + int((track_right - track_left) * ratio)
+            pygame.draw.circle(panel, (*color, 255), (marker_x, track_y), max(3, int(4 * ui_scale)))
+            label = render_cached(self._text_cache, self.meta_font, name, (214, 220, 230))
+            label_pos = Vector2(marker_x - label.get_width() / 2, track_y - int(26 * ui_scale))
+            panel.blit(label, (int(label_pos.x), int(label_pos.y)))
+
+        surface.blit(panel, (x, y))
+
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.scale) < 0.01:
+            return
+        self.scale = ui_scale
+        self._text_cache.clear()
+        self.label_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)), bold=True)
+        self.meta_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)))

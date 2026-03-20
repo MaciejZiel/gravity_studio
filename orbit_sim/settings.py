@@ -10,6 +10,7 @@ class StudioSettings:
     show_orbits: bool = True
     show_labels: bool = True
     show_missions: bool = True
+    show_sky: bool = True
     scale_mode: str = "compressed"
     last_scene: str = "full_system"
     ui_hidden: bool = False
@@ -33,6 +34,7 @@ class StudioSettingsStore:
             show_orbits=bool(data.get("show_orbits", True)),
             show_labels=bool(data.get("show_labels", True)),
             show_missions=bool(data.get("show_missions", True)),
+            show_sky=bool(data.get("show_sky", True)),
             scale_mode=str(data.get("scale_mode", "compressed")),
             last_scene=str(data.get("last_scene", "full_system")),
             ui_hidden=bool(data.get("ui_hidden", False)),
