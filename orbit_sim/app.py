@@ -14,6 +14,7 @@ from orbit_sim.config import (
     TITLE_TEXT,
     WINDOW_SIZE,
 )
+from orbit_sim.simulation import OrbitalSimulation
 
 
 class GravityStudioApp:
@@ -24,6 +25,7 @@ class GravityStudioApp:
         self.clock = pygame.time.Clock()
         self.title_font = pygame.font.SysFont("segoeui", 24)
         self.caption_font = pygame.font.SysFont("segoeui", 14)
+        self.simulation = OrbitalSimulation()
         self.running = True
 
     def run(self) -> None:
@@ -42,7 +44,7 @@ class GravityStudioApp:
                 self.running = False
 
     def update(self, dt: float) -> None:
-        _ = dt
+        self.simulation.update(dt)
 
     def render(self) -> None:
         self.screen.fill(SPACE_COLOR)
