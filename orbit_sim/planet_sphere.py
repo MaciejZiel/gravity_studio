@@ -45,6 +45,8 @@ class SpinningPlanetRenderer:
         texture = self.texture_library.map_texture(body.name, 1024)
         if texture is None:
             return pygame.Surface((diameter, diameter), pygame.SRCALPHA)
+        earth_clouds = self.texture_library.auxiliary_texture("earth_clouds", (texture.get_width(), texture.get_height()))
+        earth_night = self.texture_library.auxiliary_texture("earth_night", (texture.get_width(), texture.get_height()))
 
         sphere = pygame.Surface((diameter, diameter), pygame.SRCALPHA)
         radius = diameter / 2
@@ -80,7 +82,19 @@ class SpinningPlanetRenderer:
                 source_color = texture.get_at((source_x, source_y))
                 bump = self._bump_vector(texture, source_x, source_y, bump_strength)
                 shaded_normal = (surface_normal + bump).normalize()
-                lit_color = self._lit_color(body, source_color, shaded_normal, light_direction)
+                diffuse = max(0.0, shaded_normal.dot(light_direction))
+                lit_color = self._shade_color(body, source_color, diffuse)
+                if body.name == "Earth" and earth_night is not None:
+                    night_color = earth_night.get_at((source_x, source_y))
+                    night_mix = max(0.0, (0.34 - diffuse) / 0.34)
+                    lit_color = self._add_light_emission(lit_color, night_color, night_mix * 0.8)
+                if body.name == "Earth" and earth_clouds is not None:
+                    cloud_rotation = rotation_radians * 1.08 + simulation_days * 0.05
+                    cloud_u = ((atan2(surface_normal.x, surface_normal.z) + cloud_rotation) / (2 * pi) + 0.5) % 1.0
+                    cloud_x = min(texture_width - 1, int(cloud_u * (texture_width - 1)))
+                    cloud_color = earth_clouds.get_at((cloud_x, source_y))
+                    cloud_mix = max(0.0, (self._luminance(cloud_color) - 0.46) * 1.8)
+                    lit_color = self._blend(lit_color, (248, 250, 252), min(0.32, cloud_mix))
                 sphere.set_at((x, y), lit_color)
 
         sphere.unlock()
@@ -112,20 +126,44 @@ class SpinningPlanetRenderer:
         pygame.draw.circle(atmosphere, atmosphere_colors[body.name], (radius, radius), int(radius * 1.02), max(1, sphere.get_width() // 64))
         sphere.blit(atmosphere, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
 
-    def _lit_color(
+    def _shade_color(
         self,
         body: CelestialBody,
         color: pygame.Color,
-        surface_normal: Vector3,
-        light_direction: Vector3,
+        diffuse: float,
     ) -> tuple[int, int, int, int]:
-        diffuse = max(0.0, surface_normal.dot(light_direction))
         intensity = min(1.12, 0.22 + diffuse * 0.9)
         specular = max(0.0, diffuse - 0.9) * self._specular_strength(body, color)
         return (
             min(255, int(color.r * intensity + 255 * specular)),
             min(255, int(color.g * intensity + 248 * specular)),
             min(255, int(color.b * intensity + 236 * specular)),
+            255,
+        )
+
+    def _add_light_emission(
+        self,
+        base_color: tuple[int, int, int, int],
+        emission: pygame.Color,
+        amount: float,
+    ) -> tuple[int, int, int, int]:
+        return (
+            min(255, int(base_color[0] + emission.r * amount)),
+            min(255, int(base_color[1] + emission.g * amount)),
+            min(255, int(base_color[2] + emission.b * amount)),
+            255,
+        )
+
+    def _blend(
+        self,
+        base_color: tuple[int, int, int, int],
+        target_color: tuple[int, int, int],
+        amount: float,
+    ) -> tuple[int, int, int, int]:
+        return (
+            int(base_color[0] * (1.0 - amount) + target_color[0] * amount),
+            int(base_color[1] * (1.0 - amount) + target_color[1] * amount),
+            int(base_color[2] * (1.0 - amount) + target_color[2] * amount),
             255,
         )
 
