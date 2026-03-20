@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from math import asin, atan2, pi, sqrt
+from math import asin, atan2, cos, pi, radians, sin, sqrt
 
 import pygame
-from pygame import Vector2
+from pygame import Vector2, Vector3
 
 from orbit_sim.models import CelestialBody
 from orbit_sim.planet_textures import PlanetTextureLibrary
@@ -30,7 +30,7 @@ class SpinningPlanetRenderer:
         rotation_index = int((rotation_degrees % 360.0) / 3.0)
         cache_key = (body.name, internal_diameter, rotation_index)
         if cache_key not in self._frame_cache:
-            self._frame_cache[cache_key] = self._build_frame(body, internal_diameter, rotation_index * 3.0)
+            self._frame_cache[cache_key] = self._build_frame(body, internal_diameter, rotation_index * 3.0, simulation_days)
 
         frame = self._frame_cache[cache_key]
         if frame.get_width() == safe_diameter:
@@ -41,7 +41,7 @@ class SpinningPlanetRenderer:
     def clear_frame_cache(self) -> None:
         self._frame_cache.clear()
 
-    def _build_frame(self, body: CelestialBody, diameter: int, rotation_degrees: float) -> pygame.Surface:
+    def _build_frame(self, body: CelestialBody, diameter: int, rotation_degrees: float, simulation_days: float) -> pygame.Surface:
         texture = self.texture_library.map_texture(body.name, 1024)
         if texture is None:
             return pygame.Surface((diameter, diameter), pygame.SRCALPHA)
@@ -52,7 +52,9 @@ class SpinningPlanetRenderer:
         texture_width = texture.get_width()
         texture_height = texture.get_height()
         rotation_radians = rotation_degrees * pi / 180.0
-        light_direction = Vector2(-0.82, -0.24).normalize()
+        light_direction = self._light_direction(body, simulation_days)
+        display_tilt = radians(self._display_axial_tilt(body))
+        bump_strength = self._bump_strength(body)
         texture.lock()
         sphere.lock()
 
@@ -65,14 +67,20 @@ class SpinningPlanetRenderer:
                     continue
 
                 z_normalized = sqrt(1.0 - radial_distance)
-                longitude = atan2(x_normalized, z_normalized) + rotation_radians
-                latitude = asin(-y_normalized)
+                surface_normal = self._rotate_z(
+                    Vector3(x_normalized, -y_normalized, z_normalized),
+                    -display_tilt,
+                )
+                longitude = atan2(surface_normal.x, surface_normal.z) + rotation_radians
+                latitude = asin(surface_normal.y)
                 u = ((longitude / (2 * pi)) + 0.5) % 1.0
                 v = max(0.0, min(1.0, 0.5 - latitude / pi))
                 source_x = min(texture_width - 1, int(u * (texture_width - 1)))
                 source_y = min(texture_height - 1, int(v * (texture_height - 1)))
                 source_color = texture.get_at((source_x, source_y))
-                lit_color = self._lit_color(source_color, x_normalized, y_normalized, z_normalized, light_direction)
+                bump = self._bump_vector(texture, source_x, source_y, bump_strength)
+                shaded_normal = (surface_normal + bump).normalize()
+                lit_color = self._lit_color(body, source_color, shaded_normal, light_direction)
                 sphere.set_at((x, y), lit_color)
 
         sphere.unlock()
@@ -106,23 +114,69 @@ class SpinningPlanetRenderer:
 
     def _lit_color(
         self,
+        body: CelestialBody,
         color: pygame.Color,
-        x_normalized: float,
-        y_normalized: float,
-        z_normalized: float,
-        light_direction: Vector2,
+        surface_normal: Vector3,
+        light_direction: Vector3,
     ) -> tuple[int, int, int, int]:
-        light_x = light_direction.x
-        light_y = light_direction.y
-        normal_y = -y_normalized
-        diffuse = max(0.0, x_normalized * light_x + normal_y * light_y + z_normalized * 0.74)
+        diffuse = max(0.0, surface_normal.dot(light_direction))
         intensity = min(1.12, 0.22 + diffuse * 0.9)
-        specular = max(0.0, diffuse - 0.92) * 0.7
+        specular = max(0.0, diffuse - 0.9) * self._specular_strength(body, color)
         return (
             min(255, int(color.r * intensity + 255 * specular)),
             min(255, int(color.g * intensity + 248 * specular)),
             min(255, int(color.b * intensity + 236 * specular)),
             255,
+        )
+
+    def _light_direction(self, body: CelestialBody, simulation_days: float) -> Vector3:
+        seasonal_phase = (body.angle - radians(body.season_offset_deg)) + simulation_days * 0.00012
+        subsolar_latitude = sin(seasonal_phase) * sin(radians(body.axial_tilt_deg))
+        return Vector3(-0.8, subsolar_latitude * 0.9, 0.72).normalize()
+
+    def _display_axial_tilt(self, body: CelestialBody) -> float:
+        tilt = body.axial_tilt_deg
+        if tilt > 90.0:
+            tilt = 180.0 - tilt
+        return max(-82.0, min(82.0, tilt))
+
+    def _bump_strength(self, body: CelestialBody) -> float:
+        if body.name in {"Mercury", "Mars"}:
+            return 0.22
+        if body.name == "Earth":
+            return 0.18
+        if body.name in {"Jupiter", "Saturn", "Uranus", "Neptune"}:
+            return 0.08
+        return 0.12
+
+    def _specular_strength(self, body: CelestialBody, color: pygame.Color) -> float:
+        if body.name == "Earth":
+            ocean_bias = max(0.0, min(1.0, (color.b - color.r * 0.7) / 140.0))
+            return 0.18 + ocean_bias * 1.1
+        if body.name == "Venus":
+            return 0.12
+        if body.name in {"Mercury", "Mars"}:
+            return 0.08
+        return 0.04
+
+    def _bump_vector(self, texture: pygame.Surface, x: int, y: int, strength: float) -> Vector3:
+        if strength <= 0.0:
+            return Vector3()
+
+        left = self._luminance(texture.get_at((max(0, x - 1), y)))
+        right = self._luminance(texture.get_at((min(texture.get_width() - 1, x + 1), y)))
+        up = self._luminance(texture.get_at((x, max(0, y - 1))))
+        down = self._luminance(texture.get_at((x, min(texture.get_height() - 1, y + 1))))
+        return Vector3((left - right) * strength, (down - up) * strength, 0.0)
+
+    def _luminance(self, color: pygame.Color) -> float:
+        return (color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722) / 255.0
+
+    def _rotate_z(self, vector: Vector3, angle_radians: float) -> Vector3:
+        return Vector3(
+            vector.x * cos(angle_radians) - vector.y * sin(angle_radians),
+            vector.x * sin(angle_radians) + vector.y * cos(angle_radians),
+            vector.z,
         )
 
     def _rotation_degrees(self, body: CelestialBody, simulation_days: float) -> float:
