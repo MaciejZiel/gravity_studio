@@ -62,9 +62,9 @@ class SceneRenderer:
             for radius_factor, alpha in ((0.5, 9), (0.32, 18), (0.2, 28)):
                 radius = int(min_dimension * radius_factor)
                 pygame.draw.circle(haze, (*SPACE_HAZE, alpha), center, int(radius * haze_scale))
-            self._space_haze_cache[cache_key] = haze
             if len(self._space_haze_cache) > 24:
                 self._space_haze_cache.clear()
+            self._space_haze_cache[cache_key] = haze
 
         surface.blit(self._space_haze_cache[cache_key], (0, 0))
 
