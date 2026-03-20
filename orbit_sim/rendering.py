@@ -151,6 +151,8 @@ class SceneRenderer:
 
         pygame.draw.circle(surface, base_color, self._point(center), radius)
         self._draw_surface_features(surface, center, radius, body)
+        if body.has_rings:
+            self._draw_ring_shadow(surface, center, radius)
 
         shadow_offset = center - light_vector * radius * 0.28
         shadow_radius = int(radius * 1.02)
@@ -299,6 +301,18 @@ class SceneRenderer:
         surface.blit(
             atmosphere_surface,
             (int(center.x - atmosphere_surface.get_width() / 2), int(center.y - atmosphere_surface.get_height() / 2)),
+            special_flags=pygame.BLEND_ALPHA_SDL2,
+        )
+
+    def _draw_ring_shadow(self, surface: pygame.Surface, center: Vector2, radius: int) -> None:
+        shadow_surface = pygame.Surface((radius * 4, radius * 4), pygame.SRCALPHA)
+        shadow_rect = pygame.Rect(0, 0, int(radius * 2.4), max(2, int(radius * 0.42)))
+        shadow_rect.center = (shadow_surface.get_width() // 2, shadow_surface.get_height() // 2 - int(radius * 0.08))
+        pygame.draw.ellipse(shadow_surface, (44, 36, 24, 52), shadow_rect)
+        pygame.draw.ellipse(shadow_surface, (22, 18, 12, 36), shadow_rect.inflate(int(radius * 0.2), int(radius * 0.12)))
+        surface.blit(
+            shadow_surface,
+            (int(center.x - shadow_surface.get_width() / 2), int(center.y - shadow_surface.get_height() / 2)),
             special_flags=pygame.BLEND_ALPHA_SDL2,
         )
 
