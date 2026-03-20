@@ -232,6 +232,7 @@ class FocusBadge:
         self.title_font: pygame.font.Font | None = None
         self.label_font: pygame.font.Font | None = None
         self.value_font: pygame.font.Font | None = None
+        self.meta_font: pygame.font.Font | None = None
 
     def draw(
         self,
@@ -243,7 +244,7 @@ class FocusBadge:
     ) -> None:
         self._ensure_fonts(ui_scale)
         panel_width = int(272 * ui_scale)
-        panel_height = int(126 * ui_scale)
+        panel_height = int(148 * ui_scale)
         panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
         pygame.draw.rect(panel, (8, 12, 19, 224), panel.get_rect(), border_radius=int(22 * ui_scale))
         pygame.draw.rect(panel, (50, 58, 72, 228), panel.get_rect(), width=1, border_radius=int(22 * ui_scale))
@@ -255,9 +256,11 @@ class FocusBadge:
 
         self._draw_time_row(panel, "Local", local_time_label, int(74 * ui_scale), ui_scale)
         self._draw_time_row(panel, "Sim", simulation_time_label, int(98 * ui_scale), ui_scale)
+        hint = self.meta_font.render("Drag sphere to rotate", True, (112, 124, 144))
+        panel.blit(hint, (int(20 * ui_scale), int(124 * ui_scale)))
 
         x = int(42 * ui_scale)
-        y = int(surface.get_height() * 0.73)
+        y = int(surface.get_height() * 0.71)
         surface.blit(panel, (x, y))
 
     def _draw_time_row(self, panel: pygame.Surface, label: str, value: str, top: int, ui_scale: float) -> None:
@@ -275,6 +278,7 @@ class FocusBadge:
         self.title_font = pygame.font.SysFont("segoeui", max(20, int(24 * ui_scale)), bold=True)
         self.label_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
         self.value_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)))
+        self.meta_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)))
 
 
 class ControlBar:

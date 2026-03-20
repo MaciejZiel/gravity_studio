@@ -38,6 +38,7 @@ python -m orbit_sim
 
 - `Left click`: select a planet
 - `Left click` on a planet: jump into focus and show the rotating close-up preview
+- `Left drag` on the focus sphere: rotate the selected planet manually
 - `Mouse wheel`: zoom in or out
 - `Q / W / E`: switch between `System`, `Inner`, and `Outer` scenes
 - `F`: jump to focus view for the selected planet
