@@ -59,6 +59,41 @@ class InfoPanel:
         panel.blit(value_surface, (168, top - 2))
 
 
+class HudChrome:
+    def __init__(self) -> None:
+        self.title_font = pygame.font.SysFont("segoeui", 24, bold=True)
+        self.subtitle_font = pygame.font.SysFont("segoeui", 14)
+        self.chip_font = pygame.font.SysFont("segoeui", 12, bold=True)
+
+    def draw(self, surface: pygame.Surface, paused: bool, zoom: float) -> None:
+        title = self.title_font.render("GRAVITY STUDIO", True, (230, 235, 244))
+        subtitle = self.subtitle_font.render("Interactive orbital motion study", True, (112, 125, 154))
+        hint = self.subtitle_font.render("Click a planet for details. Use the mouse wheel to zoom.", True, (95, 108, 138))
+
+        surface.blit(title, (44, 34))
+        surface.blit(subtitle, (46, 68))
+        surface.blit(hint, (46, 92))
+
+        chips = [
+            f"{'PAUSED' if paused else 'LIVE'}",
+            f"ZOOM {int(zoom * 100)}%",
+        ]
+        x = 46
+        for chip in chips:
+            chip_width = self.chip_font.size(chip)[0] + 22
+            chip_rect = pygame.Rect(x, 124, chip_width, 28)
+            chip_surface = pygame.Surface(chip_rect.size, pygame.SRCALPHA)
+            fill = (24, 39, 62, 188) if "ZOOM" in chip else ((37, 59, 74, 196) if paused else (22, 62, 66, 196))
+            border = (84, 112, 154, 208) if "ZOOM" in chip else ((104, 156, 184, 216) if paused else (96, 191, 177, 220))
+            pygame.draw.rect(chip_surface, fill, chip_surface.get_rect(), border_radius=14)
+            pygame.draw.rect(chip_surface, border, chip_surface.get_rect(), width=1, border_radius=14)
+            label_surface = self.chip_font.render(chip, True, (226, 233, 242))
+            label_rect = label_surface.get_rect(center=chip_surface.get_rect().center)
+            chip_surface.blit(label_surface, label_rect)
+            surface.blit(chip_surface, chip_rect.topleft)
+            x += chip_width + 10
+
+
 class ControlBar:
     def __init__(self) -> None:
         self.button_font = pygame.font.SysFont("segoeui", 16, bold=True)

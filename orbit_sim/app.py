@@ -8,15 +8,13 @@ from pygame import Vector2
 from orbit_sim.background import StarField
 from orbit_sim.config import (
     SPACE_COLOR,
-    SUBTITLE_TEXT,
     TARGET_FPS,
-    TITLE_TEXT,
     WINDOW_SIZE,
 )
 from orbit_sim.models import CelestialBody
 from orbit_sim.rendering import SceneRenderer
 from orbit_sim.simulation import OrbitalSimulation
-from orbit_sim.ui import ControlBar, InfoPanel
+from orbit_sim.ui import ControlBar, HudChrome, InfoPanel
 
 
 class GravityStudioApp:
@@ -25,11 +23,10 @@ class GravityStudioApp:
         pygame.display.set_caption("Gravity Studio")
         self.screen = pygame.display.set_mode(WINDOW_SIZE)
         self.clock = pygame.time.Clock()
-        self.title_font = pygame.font.SysFont("segoeui", 24)
-        self.caption_font = pygame.font.SysFont("segoeui", 14)
         self.scene_center = Vector2(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] / 2)
         self.star_field = StarField(WINDOW_SIZE)
         self.simulation = OrbitalSimulation()
+        self.hud = HudChrome()
         self.info_panel = InfoPanel()
         self.control_bar = ControlBar()
         self.scene_renderer = SceneRenderer()
@@ -96,16 +93,10 @@ class GravityStudioApp:
             self.hovered_body,
             self.selected_body,
         )
-        self.draw_heading()
+        self.draw_hud()
         self.draw_info_panel()
         self.draw_controls()
         pygame.display.flip()
-
-    def draw_heading(self) -> None:
-        title = self.title_font.render("GRAVITY STUDIO", True, TITLE_TEXT)
-        subtitle = self.caption_font.render("Orbital motion study", True, SUBTITLE_TEXT)
-        self.screen.blit(title, (44, 34))
-        self.screen.blit(subtitle, (46, 66))
 
     def body_screen_position(self, body: CelestialBody) -> Vector2:
         return self.scene_center + body.position() * self.zoom
@@ -123,6 +114,9 @@ class GravityStudioApp:
 
     def draw_controls(self) -> None:
         self.control_bar.draw(self.screen, self.control_buttons, self.hovered_action)
+
+    def draw_hud(self) -> None:
+        self.hud.draw(self.screen, self.paused, self.zoom)
 
     def action_at_screen_position(self, position: tuple[int, int]) -> str | None:
         for button in self.control_buttons:
