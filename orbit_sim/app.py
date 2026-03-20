@@ -9,6 +9,7 @@ from pygame import Vector2
 
 from orbit_sim.audio import AmbientSoundscape
 from orbit_sim.background import StarField
+from orbit_sim.branding import create_window_icon, draw_launch_splash
 from orbit_sim.camera import SolarCamera
 from orbit_sim.config import (
     FALLBACK_WINDOW_SIZE,
@@ -27,6 +28,7 @@ class GravityStudioApp:
         pygame.mixer.pre_init(22050, -16, 2, 512)
         pygame.init()
         pygame.display.set_caption("Gravity Studio: Solar System")
+        pygame.display.set_icon(create_window_icon())
         self.settings_store = StudioSettingsStore(Path.cwd())
         self.settings = self.settings_store.load()
         self.viewport = self._detect_viewport()
@@ -393,13 +395,7 @@ class GravityStudioApp:
         self.hud.draw_notification(self.screen, self.notification_text, self.notification_timer, self.camera.layout.ui_scale)
 
     def draw_intro_fade(self) -> None:
-        if self.elapsed_time >= 2.2:
-            return
-
-        alpha = int(255 * max(0.0, 1.0 - self.elapsed_time / 2.2))
-        fade = pygame.Surface(self.viewport, pygame.SRCALPHA)
-        fade.fill((0, 0, 0, alpha))
-        self.screen.blit(fade, (0, 0))
+        draw_launch_splash(self.screen, self.elapsed_time, self.camera.layout.ui_scale)
 
     def timeline_hit_test(self, position: tuple[int, int]) -> bool:
         if self.ui_hidden:
