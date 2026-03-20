@@ -35,7 +35,7 @@ class InfoPanel:
     def draw(self, surface: pygame.Surface, body: CelestialBody, visibility: float, ui_scale: float) -> None:
         self._ensure_fonts(ui_scale)
         panel_width = int(380 * ui_scale)
-        panel_height = int(296 * ui_scale)
+        panel_height = int(354 * ui_scale)
         slide = int((1.0 - visibility) * 20 * ui_scale)
         alpha = max(0, min(255, int(visibility * 255)))
         x = surface.get_width() - panel_width - int(40 * ui_scale) + slide
@@ -66,10 +66,15 @@ class InfoPanel:
             self._draw_stat_row(panel, label, value, top, ui_scale)
             top += row_gap
 
+        comparison_title = self.label_font.render("Compared with Earth", True, (132, 142, 160))
+        comparison_value = self.fact_font.render(self._comparison_text(body), True, (208, 214, 224))
+        panel.blit(comparison_title, (int(24 * ui_scale), int(248 * ui_scale)))
+        panel.blit(comparison_value, (int(24 * ui_scale), int(268 * ui_scale)))
+
         fact_title = self.label_font.render("Fact", True, (132, 142, 160))
-        panel.blit(fact_title, (int(24 * ui_scale), int(232 * ui_scale)))
+        panel.blit(fact_title, (int(24 * ui_scale), int(298 * ui_scale)))
         fact_lines = self._wrap_text(body.fact, self.fact_font, panel_width - int(48 * ui_scale))
-        text_y = int(252 * ui_scale)
+        text_y = int(318 * ui_scale)
         for line in fact_lines[:2]:
             line_surface = self.fact_font.render(line, True, (208, 214, 224))
             panel.blit(line_surface, (int(24 * ui_scale), text_y))
@@ -112,6 +117,14 @@ class InfoPanel:
             lines.append(" ".join(current))
 
         return lines
+
+    def _comparison_text(self, body: CelestialBody) -> str:
+        if body.name == "Earth":
+            return "Baseline reference for size and year length."
+
+        radius_ratio = body.radius_km / 6371.0
+        year_ratio = body.orbital_period_days / 365.25
+        return f"{radius_ratio:.1f}x radius, {year_ratio:.1f}x year length"
 
     def _ensure_fonts(self, ui_scale: float) -> None:
         if abs(ui_scale - self.scale) < 0.01:
@@ -260,6 +273,64 @@ class ControlBar:
 
         self.scale = ui_scale
         self.button_font = pygame.font.SysFont("segoeui", max(12, int(14 * ui_scale)), bold=True)
+
+
+class SceneStrip:
+    def __init__(self) -> None:
+        self.scale = 0.0
+        self.button_font: pygame.font.Font | None = None
+
+    def build_buttons(
+        self,
+        width: int,
+        ui_scale: float,
+        current_scene: str,
+        has_selection: bool,
+    ) -> list[ControlButton]:
+        self._ensure_fonts(ui_scale)
+        labels = [
+            ("scene_system", "System", current_scene == "full_system"),
+            ("scene_inner", "Inner", current_scene == "inner_worlds"),
+            ("scene_outer", "Outer", current_scene == "outer_worlds"),
+            ("scene_focus", "Focus", current_scene == "focus" and has_selection),
+        ]
+        x = width - int(36 * ui_scale)
+        y = int(34 * ui_scale)
+        gap = int(8 * ui_scale)
+        buttons: list[ControlButton] = []
+
+        for action, label, active in reversed(labels):
+            button_width = max(int(68 * ui_scale), self.button_font.size(label)[0] + int(24 * ui_scale))
+            rect = pygame.Rect(x - button_width, y, button_width, int(32 * ui_scale))
+            buttons.append(ControlButton(action=action, label=label, rect=rect, active=active))
+            x -= button_width + gap
+
+        buttons.reverse()
+        return buttons
+
+    def draw(self, surface: pygame.Surface, buttons: list[ControlButton], ui_scale: float) -> None:
+        self._ensure_fonts(ui_scale)
+        for button in buttons:
+            fill = (10, 14, 22, 214)
+            border = (50, 58, 72, 230)
+            if button.active:
+                fill = (26, 34, 46, 240)
+                border = (120, 132, 156, 240)
+
+            button_surface = pygame.Surface(button.rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(button_surface, fill, button_surface.get_rect(), border_radius=int(14 * ui_scale))
+            pygame.draw.rect(button_surface, border, button_surface.get_rect(), width=1, border_radius=int(14 * ui_scale))
+            label_surface = self.button_font.render(button.label, True, (224, 229, 237))
+            label_rect = label_surface.get_rect(center=button_surface.get_rect().center)
+            button_surface.blit(label_surface, label_rect)
+            surface.blit(button_surface, button.rect.topleft)
+
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.scale) < 0.01:
+            return
+
+        self.scale = ui_scale
+        self.button_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)), bold=True)
 
 
 class TimelineStrip:

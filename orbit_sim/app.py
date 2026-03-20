@@ -17,7 +17,7 @@ from orbit_sim.config import (
 from orbit_sim.models import CelestialBody
 from orbit_sim.rendering import SceneRenderer
 from orbit_sim.simulation import OrbitalSimulation
-from orbit_sim.ui import ControlBar, HudChrome, InfoPanel, SliderControl, TimelineStrip
+from orbit_sim.ui import ControlBar, HudChrome, InfoPanel, SceneStrip, TimelineStrip
 
 
 class GravityStudioApp:
@@ -33,6 +33,7 @@ class GravityStudioApp:
         self.hud = HudChrome()
         self.info_panel = InfoPanel()
         self.control_bar = ControlBar()
+        self.scene_strip = SceneStrip()
         self.timeline_strip = TimelineStrip()
         self.scene_renderer = SceneRenderer()
         self.elapsed_time = 0.0
@@ -63,6 +64,12 @@ class GravityStudioApp:
             *self.viewport,
             self.camera.layout.ui_scale,
             self.simulation.simulation_days / self.simulation.timeline_range_days,
+        )
+        self.scene_buttons = self.scene_strip.build_buttons(
+            self.viewport[0],
+            self.camera.layout.ui_scale,
+            self.camera.scene_mode,
+            self.selected_body is not None,
         )
         self.dragging_timeline = False
         self.paused = False
@@ -124,6 +131,12 @@ class GravityStudioApp:
             self.camera.layout.ui_scale,
             self.simulation.simulation_days / self.simulation.timeline_range_days,
         )
+        self.scene_buttons = self.scene_strip.build_buttons(
+            self.viewport[0],
+            self.camera.layout.ui_scale,
+            self.camera.scene_mode,
+            self.selected_body is not None,
+        )
         self.hovered_action = self.action_at_screen_position(pygame.mouse.get_pos())
         self.hovered_body = self.body_at_screen_position(Vector2(pygame.mouse.get_pos()))
         if self.selected_body is not None:
@@ -156,6 +169,7 @@ class GravityStudioApp:
             self.draw_info_panel()
             self.draw_controls()
             self.draw_timeline()
+            self.draw_scene_buttons()
         self.draw_notification()
         pygame.display.flip()
 
@@ -189,8 +203,11 @@ class GravityStudioApp:
             self.camera.layout.ui_scale,
         )
 
+    def draw_scene_buttons(self) -> None:
+        self.scene_strip.draw(self.screen, self.scene_buttons, self.camera.layout.ui_scale)
+
     def action_at_screen_position(self, position: tuple[int, int]) -> str | None:
-        for button in [*self.control_buttons, *self.timeline_buttons]:
+        for button in [*self.control_buttons, *self.timeline_buttons, *self.scene_buttons]:
             if button.rect.collidepoint(position):
                 return button.action
 
