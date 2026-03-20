@@ -68,6 +68,10 @@ class SolarCamera:
     def _scene_preset(self) -> ScenePreset:
         return SCENE_PRESETS[self.scene_mode]
 
+    @property
+    def scene_label(self) -> str:
+        return self._scene_preset.label
+
     def adjust_zoom(self, delta: float) -> None:
         self.target_user_zoom = max(0.72, min(2.45, self.target_user_zoom + delta))
 

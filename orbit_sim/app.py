@@ -170,6 +170,7 @@ class GravityStudioApp:
             self.draw_controls()
             self.draw_timeline()
             self.draw_scene_buttons()
+        self.draw_intro_fade()
         self.draw_notification()
         pygame.display.flip()
 
@@ -191,7 +192,15 @@ class GravityStudioApp:
         self.control_bar.draw(self.screen, self.control_buttons, self.hovered_action, self.camera.layout.ui_scale)
 
     def draw_hud(self) -> None:
-        self.hud.draw(self.screen, self.paused, self.camera.zoom, self.camera.scale_mode, self.camera.layout.ui_scale)
+        self.hud.draw(
+            self.screen,
+            self.paused,
+            self.camera.zoom,
+            self.camera.scale_mode,
+            self.camera.scene_label,
+            self.simulation.time_speed_label,
+            self.camera.layout.ui_scale,
+        )
 
     def draw_timeline(self) -> None:
         date_label = self.simulation.current_date().strftime("%b %d, %Y")
@@ -282,6 +291,15 @@ class GravityStudioApp:
             return
 
         self.hud.draw_notification(self.screen, self.notification_text, self.notification_timer, self.camera.layout.ui_scale)
+
+    def draw_intro_fade(self) -> None:
+        if self.elapsed_time >= 2.2:
+            return
+
+        alpha = int(255 * max(0.0, 1.0 - self.elapsed_time / 2.2))
+        fade = pygame.Surface(self.viewport, pygame.SRCALPHA)
+        fade.fill((0, 0, 0, alpha))
+        self.screen.blit(fade, (0, 0))
 
     def timeline_hit_test(self, position: tuple[int, int]) -> bool:
         return self.timeline_slider.track_rect.inflate(0, 18).collidepoint(position) or self.timeline_slider.handle_rect.collidepoint(position)

@@ -146,17 +146,26 @@ class HudChrome:
         self.meta_font: pygame.font.Font | None = None
         self.note_font: pygame.font.Font | None = None
 
-    def draw(self, surface: pygame.Surface, paused: bool, zoom: float, scale_mode: str, ui_scale: float) -> None:
+    def draw(
+        self,
+        surface: pygame.Surface,
+        paused: bool,
+        zoom: float,
+        scale_mode: str,
+        scene_label: str,
+        time_speed_label: str,
+        ui_scale: float,
+    ) -> None:
         self._ensure_fonts(ui_scale)
         margin_x = int(42 * ui_scale)
         title = self.title_font.render("SOLAR SYSTEM", True, (230, 235, 242))
         subtitle = self.subtitle_font.render("Astronomy-inspired orbital visualization", True, (124, 136, 156))
         meta = self.meta_font.render(
-            f"{'PAUSED' if paused else 'LIVE'}   |   ZOOM {int(zoom * 100)}%   |   SCALE {scale_mode.upper()}",
+            f"{'PAUSED' if paused else 'LIVE'}   |   {scene_label.upper()}   |   {time_speed_label}   |   ZOOM {int(zoom * 100)}%   |   SCALE {scale_mode.upper()}",
             True,
             (106, 118, 140),
         )
-        hint = self.meta_font.render("Mouse wheel to zoom. Click a planet to inspect.", True, (88, 100, 120))
+        hint = self.meta_font.render("Q/W/E scenes, 1-4 time, H hide UI, P capture, click to focus.", True, (88, 100, 120))
 
         surface.blit(title, (margin_x, int(34 * ui_scale)))
         surface.blit(subtitle, (margin_x, int(70 * ui_scale)))

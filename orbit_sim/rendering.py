@@ -35,6 +35,8 @@ class SceneRenderer:
         self.draw_planets(surface, camera, bodies, elapsed_time, hovered_body, selected_body)
         if show_labels:
             self.draw_labels(surface, camera, bodies, selected_body)
+        if camera.scene_mode == "focus" and selected_body is not None:
+            self.draw_focus_vignette(surface, camera, selected_body)
 
     def draw_space_haze(self, surface: pygame.Surface, zoom: float) -> None:
         size = surface.get_size()
@@ -324,6 +326,25 @@ class SceneRenderer:
 
     def _point(self, vector: Vector2) -> tuple[int, int]:
         return int(vector.x), int(vector.y)
+
+    def draw_focus_vignette(
+        self,
+        surface: pygame.Surface,
+        camera: SolarCamera,
+        selected_body: CelestialBody,
+    ) -> None:
+        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 78))
+        center = camera.body_position(selected_body)
+        for radius_factor, alpha in ((10.5, 0), (8.0, 22), (5.8, 46)):
+            pygame.draw.circle(
+                overlay,
+                (0, 0, 0, alpha),
+                self._point(center),
+                int(camera.planet_radius(selected_body) * radius_factor),
+            )
+
+        surface.blit(overlay, (0, 0))
 
     def _draw_solar_corona(
         self,
