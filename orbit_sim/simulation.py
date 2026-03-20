@@ -65,6 +65,7 @@ class OrbitalSimulation:
         return CelestialBody(
             name=definition.name,
             angular_speed=self._angular_speed_for_period(definition.orbital_period_days),
+            rotation_hours=definition.rotation_hours,
             color=definition.color,
             accent_color=definition.accent_color,
             angle=starting_angle,

@@ -9,6 +9,7 @@ from pygame import Vector2
 class CelestialBody:
     name: str
     angular_speed: float
+    rotation_hours: float
     color: tuple[int, int, int]
     accent_color: tuple[int, int, int]
     angle: float
