@@ -386,6 +386,7 @@ class SceneStrip:
         labels = [
             ("scene_system", "System", current_scene == "full_system"),
             ("scene_inner", "Inner", current_scene == "inner_worlds"),
+            ("scene_giants", "Giants", current_scene == "gas_giants"),
             ("scene_outer", "Outer", current_scene == "outer_worlds"),
             ("scene_focus", "Focus", current_scene == "focus" and has_selection),
         ]

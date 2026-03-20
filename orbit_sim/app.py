@@ -281,6 +281,8 @@ class GravityStudioApp:
             self.camera.set_scene("full_system")
         elif action == "scene_inner":
             self.camera.set_scene("inner_worlds")
+        elif action == "scene_giants":
+            self.camera.set_scene("gas_giants")
         elif action == "scene_outer":
             self.camera.set_scene("outer_worlds")
         elif action == "scene_focus" and self.selected_body is not None:
@@ -321,6 +323,8 @@ class GravityStudioApp:
             self.handle_action("scene_system")
         elif event.key == pygame.K_w:
             self.handle_action("scene_inner")
+        elif event.key == pygame.K_g:
+            self.handle_action("scene_giants")
         elif event.key == pygame.K_e:
             self.handle_action("scene_outer")
 

@@ -26,6 +26,7 @@ class ScenePreset:
 SCENE_PRESETS = {
     "full_system": ScenePreset("System", (0.44, 0.54), 1.0, 2.15, 1.0),
     "inner_worlds": ScenePreset("Inner", (0.42, 0.56), 1.42, 5.3, 1.08),
+    "gas_giants": ScenePreset("Giants", (0.5, 0.56), 1.32, 1.02, 1.12),
     "outer_worlds": ScenePreset("Outer", (0.48, 0.55), 1.18, 0.92, 1.14),
     "focus": ScenePreset("Focus", (0.46, 0.56), 1.82, 1.28, 1.08),
 }
@@ -57,6 +58,7 @@ class SolarCamera:
         self.target_span_factor = self.current_span_factor
         self.current_center = self._base_scene_center(self._scene_preset)
         self.target_center = self.current_center
+        self.transition_energy = 0.0
         self.layout = self._build_layout(self.current_center, self.current_span_factor)
 
     def set_viewport(self, viewport: tuple[int, int]) -> None:
@@ -88,9 +90,13 @@ class SolarCamera:
         elif self.focus_body is None:
             return
 
+        if self.scene_mode != scene_mode:
+            self.transition_energy = 1.0
         self.scene_mode = scene_mode
 
     def set_focus_body(self, body: CelestialBody | None) -> None:
+        if self.focus_body is not body:
+            self.transition_energy = 1.0
         self.focus_body = body
         self.scene_mode = "focus" if body is not None else "full_system"
 
@@ -107,6 +113,7 @@ class SolarCamera:
         self.target_span_factor = self.current_span_factor
         self.current_center = self._base_scene_center(SCENE_PRESETS["full_system"])
         self.target_center = self.current_center
+        self.transition_energy = 0.0
         self.zoom = 1.0
         self.layout = self._build_layout(self.current_center, self.current_span_factor)
 
@@ -116,6 +123,7 @@ class SolarCamera:
         self.target_compression = preset.compression * (1.0 if self.scale_mode == "compressed" else 0.62)
         self.target_span_factor = preset.orbit_span_factor * (1.02 if self.scale_mode == "expanded" else 1.0)
         self.target_center = self._target_scene_center(preset, elapsed_time)
+        self.transition_energy = max(0.0, self.transition_energy - dt * 1.6)
 
         follow_strength = min(1.0, dt * 4.8)
         zoom_strength = min(1.0, dt * 5.4)
@@ -184,7 +192,11 @@ class SolarCamera:
             sin(elapsed_time * 0.11) * drift_amount,
             sin(elapsed_time * 0.09 + 0.9) * drift_amount * 0.6,
         )
-        return base_center + drift
+        cinematic = Vector2(
+            sin(elapsed_time * 1.8 + 0.4) * 18.0 * self.layout.ui_scale,
+            -16.0 * self.layout.ui_scale,
+        ) * self.transition_energy
+        return base_center + drift + cinematic
 
     def _base_scene_center(self, preset: ScenePreset) -> Vector2:
         return Vector2(self.viewport[0] * preset.center_ratio[0], self.viewport[1] * preset.center_ratio[1])
