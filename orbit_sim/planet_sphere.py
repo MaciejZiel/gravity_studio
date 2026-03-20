@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from math import asin, pi, sqrt
+from math import asin, atan2, pi, sqrt
 
 import pygame
 from pygame import Vector2
@@ -12,20 +12,19 @@ from orbit_sim.planet_textures import PlanetTextureLibrary
 class SpinningPlanetRenderer:
     def __init__(self, texture_library: PlanetTextureLibrary | None = None) -> None:
         self.texture_library = texture_library or PlanetTextureLibrary()
-        self._tiled_texture_cache: dict[tuple[str, int], pygame.Surface | None] = {}
         self._frame_cache: dict[tuple[str, int, int], pygame.Surface] = {}
 
     def render(self, body: CelestialBody, diameter: int, simulation_days: float) -> pygame.Surface | None:
         if not self.texture_library.has_texture(body.name):
             return None
 
-        safe_diameter = max(120, int(diameter))
-        internal_diameter = max(136, min(280, int(safe_diameter * 0.6)))
+        safe_diameter = max(140, int(diameter))
+        internal_diameter = max(160, min(320, int(safe_diameter * 0.74)))
         rotation_degrees = self._rotation_degrees(body, simulation_days)
-        rotation_index = int((rotation_degrees % 360.0) / 4.0)
+        rotation_index = int((rotation_degrees % 360.0) / 3.0)
         cache_key = (body.name, internal_diameter, rotation_index)
         if cache_key not in self._frame_cache:
-            self._frame_cache[cache_key] = self._build_frame(body, internal_diameter, rotation_index * 4.0)
+            self._frame_cache[cache_key] = self._build_frame(body, internal_diameter, rotation_index * 3.0)
 
         frame = self._frame_cache[cache_key]
         if frame.get_width() == safe_diameter:
@@ -37,85 +36,88 @@ class SpinningPlanetRenderer:
         self._frame_cache.clear()
 
     def _build_frame(self, body: CelestialBody, diameter: int, rotation_degrees: float) -> pygame.Surface:
-        texture = self.texture_library.square_texture(body.name, 720)
+        texture = self.texture_library.map_texture(body.name, 1024)
         if texture is None:
-            return pygame.Surface((diameter, diameter), pygame.SRCALPHA)
-
-        tiled_texture = self._tiled_texture(body.name, texture)
-        if tiled_texture is None:
             return pygame.Surface((diameter, diameter), pygame.SRCALPHA)
 
         sphere = pygame.Surface((diameter, diameter), pygame.SRCALPHA)
         radius = diameter / 2
-        visible_strip_width = texture.get_width() // 2
-        start_x = int(((rotation_degrees / 360.0) % 1.0) * texture.get_width())
+        center = radius - 0.5
+        texture_width = texture.get_width()
+        texture_height = texture.get_height()
+        rotation_radians = rotation_degrees * pi / 180.0
+        light_direction = Vector2(-0.82, -0.24).normalize()
+        texture.lock()
+        sphere.lock()
 
         for y in range(diameter):
-            y_ratio = ((y + 0.5) / diameter) * 2.0 - 1.0
-            if abs(y_ratio) >= 1.0:
-                continue
+            y_normalized = (y - center) / radius
+            for x in range(diameter):
+                x_normalized = (x - center) / radius
+                radial_distance = x_normalized * x_normalized + y_normalized * y_normalized
+                if radial_distance > 1.0:
+                    continue
 
-            half_width = sqrt(1.0 - (y_ratio * y_ratio)) * radius
-            destination_width = max(1, int(half_width * 2))
-            x_position = int(radius - half_width)
-            latitude = 0.5 - asin(y_ratio) / pi
-            source_y = max(0, min(texture.get_height() - 1, int(latitude * (texture.get_height() - 1))))
-            source_row = tiled_texture.subsurface((start_x, source_y, visible_strip_width, 1))
-            scaled_row = pygame.transform.smoothscale(source_row, (destination_width, 1))
-            sphere.blit(scaled_row, (x_position, y))
+                z_normalized = sqrt(1.0 - radial_distance)
+                longitude = atan2(x_normalized, z_normalized) + rotation_radians
+                latitude = asin(-y_normalized)
+                u = ((longitude / (2 * pi)) + 0.5) % 1.0
+                v = max(0.0, min(1.0, 0.5 - latitude / pi))
+                source_x = min(texture_width - 1, int(u * (texture_width - 1)))
+                source_y = min(texture_height - 1, int(v * (texture_height - 1)))
+                source_color = texture.get_at((source_x, source_y))
+                lit_color = self._lit_color(source_color, x_normalized, y_normalized, z_normalized, light_direction)
+                sphere.set_at((x, y), lit_color)
 
-        self._apply_lighting(sphere, body)
+        sphere.unlock()
+        texture.unlock()
+        self._draw_rim_light(sphere, body)
+        self._draw_atmosphere(sphere, body)
         return sphere
 
-    def _apply_lighting(self, sphere: pygame.Surface, body: CelestialBody) -> None:
-        diameter = sphere.get_width()
-        radius = diameter // 2
-        center = Vector2(radius, radius)
-        light_vector = Vector2(-0.75, -0.28).normalize()
-        shadow_vector = -light_vector
-
-        highlight = pygame.Surface((diameter, diameter), pygame.SRCALPHA)
-        pygame.draw.circle(
-            highlight,
-            (255, 255, 255, 54),
-            self._point(center + light_vector * radius * 0.34),
-            int(radius * 0.72),
-        )
-        pygame.draw.circle(
-            highlight,
-            (*body.accent_color, 42),
-            self._point(center + light_vector * radius * 0.5),
-            int(radius * 0.44),
-        )
-        sphere.blit(highlight, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
-
-        shadow = pygame.Surface((diameter, diameter), pygame.SRCALPHA)
-        pygame.draw.circle(
-            shadow,
-            (0, 0, 0, 112),
-            self._point(center + shadow_vector * radius * 0.16),
-            int(radius * 1.02),
-        )
-        pygame.draw.circle(
-            shadow,
-            (0, 0, 0, 78),
-            self._point(center + shadow_vector * radius * 0.38),
-            int(radius * 0.76),
-        )
-        sphere.blit(shadow, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
-
-        rim = pygame.Surface((diameter, diameter), pygame.SRCALPHA)
-        pygame.draw.circle(rim, (*body.accent_color, 58), (radius, radius), radius - 1, max(1, diameter // 90))
+    def _draw_rim_light(self, sphere: pygame.Surface, body: CelestialBody) -> None:
+        radius = sphere.get_width() // 2
+        rim = pygame.Surface(sphere.get_size(), pygame.SRCALPHA)
+        pygame.draw.circle(rim, (*body.accent_color, 42), (radius, radius), radius - 1, max(1, sphere.get_width() // 96))
+        pygame.draw.circle(rim, (255, 255, 255, 20), (int(radius * 0.72), int(radius * 0.62)), int(radius * 0.28))
         sphere.blit(rim, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
 
-    def _tiled_texture(self, body_name: str, texture: pygame.Surface) -> pygame.Surface | None:
-        cache_key = (body_name, texture.get_width())
-        if cache_key not in self._tiled_texture_cache:
-            tiled = pygame.Surface((texture.get_width() * 2, texture.get_height()))
-            tiled.blit(texture, (0, 0))
-            tiled.blit(texture, (texture.get_width(), 0))
-            self._tiled_texture_cache[cache_key] = tiled.convert()
-        return self._tiled_texture_cache[cache_key]
+    def _draw_atmosphere(self, sphere: pygame.Surface, body: CelestialBody) -> None:
+        atmosphere_colors = {
+            "Venus": (232, 212, 176, 26),
+            "Earth": (122, 176, 236, 34),
+            "Mars": (208, 154, 126, 14),
+            "Uranus": (190, 228, 236, 24),
+            "Neptune": (130, 172, 232, 26),
+        }
+        if body.name not in atmosphere_colors:
+            return
+
+        radius = sphere.get_width() // 2
+        atmosphere = pygame.Surface(sphere.get_size(), pygame.SRCALPHA)
+        pygame.draw.circle(atmosphere, atmosphere_colors[body.name], (radius, radius), int(radius * 1.02), max(1, sphere.get_width() // 64))
+        sphere.blit(atmosphere, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
+
+    def _lit_color(
+        self,
+        color: pygame.Color,
+        x_normalized: float,
+        y_normalized: float,
+        z_normalized: float,
+        light_direction: Vector2,
+    ) -> tuple[int, int, int, int]:
+        light_x = light_direction.x
+        light_y = light_direction.y
+        normal_y = -y_normalized
+        diffuse = max(0.0, x_normalized * light_x + normal_y * light_y + z_normalized * 0.74)
+        intensity = min(1.12, 0.22 + diffuse * 0.9)
+        specular = max(0.0, diffuse - 0.92) * 0.7
+        return (
+            min(255, int(color.r * intensity + 255 * specular)),
+            min(255, int(color.g * intensity + 248 * specular)),
+            min(255, int(color.b * intensity + 236 * specular)),
+            255,
+        )
 
     def _rotation_degrees(self, body: CelestialBody, simulation_days: float) -> float:
         if abs(body.rotation_hours) < 0.01:
@@ -123,6 +125,3 @@ class SpinningPlanetRenderer:
 
         turns = (simulation_days * 24.0) / body.rotation_hours
         return (turns % 1.0) * 360.0
-
-    def _point(self, vector: Vector2) -> tuple[int, int]:
-        return int(vector.x), int(vector.y)
