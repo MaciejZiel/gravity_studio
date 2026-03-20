@@ -90,10 +90,10 @@ class GravityStudioApp:
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                action = self.action_at_screen_position(event.pos)
+                action = None if self.ui_hidden else self.action_at_screen_position(event.pos)
                 if action is not None:
                     self.handle_action(action)
-                elif self.timeline_hit_test(event.pos):
+                elif not self.ui_hidden and self.timeline_hit_test(event.pos):
                     self.dragging_timeline = True
                     self.update_timeline_from_pointer(event.pos[0])
                 else:
@@ -110,7 +110,7 @@ class GravityStudioApp:
 
     def update(self, dt: float) -> None:
         self.elapsed_time += dt
-        if not self.paused:
+        if not self.paused and not self.dragging_timeline:
             self.simulation.update(dt)
         self.camera.update(dt, self.elapsed_time)
         self.control_buttons = self.control_bar.build_buttons(
@@ -216,6 +216,9 @@ class GravityStudioApp:
         self.scene_strip.draw(self.screen, self.scene_buttons, self.camera.layout.ui_scale)
 
     def action_at_screen_position(self, position: tuple[int, int]) -> str | None:
+        if self.ui_hidden:
+            return None
+
         for button in [*self.control_buttons, *self.timeline_buttons, *self.scene_buttons]:
             if button.rect.collidepoint(position):
                 return button.action
@@ -302,6 +305,9 @@ class GravityStudioApp:
         self.screen.blit(fade, (0, 0))
 
     def timeline_hit_test(self, position: tuple[int, int]) -> bool:
+        if self.ui_hidden:
+            return False
+
         return self.timeline_slider.track_rect.inflate(0, 18).collidepoint(position) or self.timeline_slider.handle_rect.collidepoint(position)
 
     def update_timeline_from_pointer(self, x_position: int) -> None:
