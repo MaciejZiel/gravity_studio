@@ -224,7 +224,7 @@ class GravityStudioApp:
             self.draw_controls()
             if self.camera.scene_mode != "focus":
                 self.draw_date_shortcuts()
-            self.draw_timeline()
+                self.draw_timeline()
             self.draw_scene_buttons()
         self.draw_intro_fade()
         self.draw_notification()
@@ -293,7 +293,12 @@ class GravityStudioApp:
         if self.ui_hidden:
             return None
 
-        for button in [*self.control_buttons, *self.timeline_buttons, *self.scene_buttons, *self.date_buttons]:
+        buttons = [*self.control_buttons, *self.scene_buttons]
+        if self.camera.scene_mode != "focus":
+            buttons.extend(self.timeline_buttons)
+            buttons.extend(self.date_buttons)
+
+        for button in buttons:
             if button.rect.collidepoint(position):
                 return button.action
 
@@ -398,7 +403,7 @@ class GravityStudioApp:
         draw_launch_splash(self.screen, self.elapsed_time, self.camera.layout.ui_scale)
 
     def timeline_hit_test(self, position: tuple[int, int]) -> bool:
-        if self.ui_hidden:
+        if self.ui_hidden or self.camera.scene_mode == "focus":
             return False
 
         return self.timeline_slider.track_rect.inflate(0, 18).collidepoint(position) or self.timeline_slider.handle_rect.collidepoint(position)
