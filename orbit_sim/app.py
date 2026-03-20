@@ -589,6 +589,7 @@ class GravityStudioApp:
         return capture_surface
 
     def persist_settings(self) -> None:
+        persisted_ui_hidden = self._presentation_restore_ui_hidden if self.presentation_mode else self.ui_hidden
         self.settings = StudioSettings(
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
@@ -596,7 +597,7 @@ class GravityStudioApp:
             show_sky=self.show_sky,
             scale_mode=self.camera.scale_mode,
             last_scene=self.camera.scene_mode,
-            ui_hidden=self.ui_hidden,
+            ui_hidden=persisted_ui_hidden,
             master_volume=self.settings.master_volume,
         )
         self.settings_store.save(self.settings)
