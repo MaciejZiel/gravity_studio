@@ -95,9 +95,6 @@ class SceneRenderer:
             position = camera.body_position(body)
             screen_pos = (int(position.x), int(position.y))
             planet_radius = max(3, int(camera.planet_radius(body)))
-            glow_size = max(54, planet_radius * 6)
-            glow = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-            glow_center = glow_size // 2
             is_hovered = body is hovered_body
             is_selected = body is selected_body
             light_vector = (camera.layout.scene_center - position)
@@ -106,21 +103,13 @@ class SceneRenderer:
             else:
                 light_vector = Vector2(-1, -1).normalize()
 
-            for radius, alpha in (
-                (int(planet_radius * 2.35), 18),
-                (int(planet_radius * 1.75), 30),
-                (int(planet_radius * 1.1), 52),
-            ):
-                pygame.draw.circle(glow, (*body.color, alpha), (glow_center, glow_center), max(4, radius))
+            self._draw_planet_halo(surface, screen_pos, planet_radius, body)
+            if body.has_rings:
+                self._draw_saturn_rings(surface, screen_pos, planet_radius)
 
-            surface.blit(
-                glow,
-                (screen_pos[0] - glow_center, screen_pos[1] - glow_center),
-                special_flags=pygame.BLEND_ALPHA_SDL2,
-            )
             if is_hovered or is_selected:
-                ring_color = body.accent_color if is_selected else body.color
-                ring_radius = planet_radius + 7 + int(1.5 * (1.0 + sin(elapsed_time * 4.0)))
+                ring_color = (216, 222, 231) if is_selected else (162, 169, 179)
+                ring_radius = planet_radius + (7 if is_selected else 5)
                 pygame.draw.circle(surface, ring_color, screen_pos, ring_radius, 1)
 
             planet_surface = pygame.Surface((planet_radius * 4, planet_radius * 4), pygame.SRCALPHA)
@@ -141,33 +130,119 @@ class SceneRenderer:
     ) -> None:
         base_color = body.color
         shadow_color = self._darken(body.color, 0.48)
-        core_shadow = self._darken(body.color, 0.72)
         rim_color = body.accent_color
 
         pygame.draw.circle(surface, base_color, self._point(center), radius)
-        pygame.draw.circle(surface, (*rim_color, 84), self._point(center), radius, 1)
+        self._draw_surface_features(surface, center, radius, body)
 
         shadow_offset = center - light_vector * radius * 0.28
-        shadow_radius = int(radius * 0.94)
-        pygame.draw.circle(surface, (*shadow_color, 180), self._point(shadow_offset), shadow_radius)
-        pygame.draw.circle(surface, base_color, self._point(center + light_vector * radius * 0.08), int(radius * 0.9))
+        shadow_radius = int(radius * 1.02)
+        pygame.draw.circle(surface, (*shadow_color, 156), self._point(shadow_offset), shadow_radius)
+        pygame.draw.circle(surface, base_color, self._point(center + light_vector * radius * 0.08), int(radius * 0.92))
+        self._draw_surface_features(surface, center + light_vector * radius * 0.08, int(radius * 0.92), body)
         pygame.draw.circle(
             surface,
-            (*core_shadow, 110),
+            (*self._darken(body.color, 0.66), 96),
             self._point(center - light_vector * radius * 0.34),
             int(radius * 0.62),
         )
 
         highlight_center = center + light_vector * radius * 0.34
-        pygame.draw.circle(surface, (*rim_color, 148), self._point(highlight_center), max(2, int(radius * 0.38)))
+        pygame.draw.circle(surface, (*rim_color, 108), self._point(highlight_center), max(2, int(radius * 0.36)))
         pygame.draw.circle(
             surface,
-            (255, 255, 255, 78),
+            (255, 255, 255, 48),
             self._point(center + light_vector * radius * 0.5),
             max(2, radius // 6),
         )
+        pygame.draw.circle(surface, (*rim_color, 52), self._point(center), radius, 1)
+
+    def _draw_surface_features(
+        self,
+        surface: pygame.Surface,
+        center: Vector2,
+        radius: int,
+        body: CelestialBody,
+    ) -> None:
+        rect = pygame.Rect(int(center.x - radius), int(center.y - radius), radius * 2, radius * 2)
+
+        if body.name in {"Jupiter", "Saturn", "Uranus", "Neptune"}:
+            self._draw_gas_bands(surface, rect, body)
+        else:
+            self._draw_terrestrial_markings(surface, center, radius, body)
+
+    def _draw_gas_bands(self, surface: pygame.Surface, rect: pygame.Rect, body: CelestialBody) -> None:
+        band_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+        center_y = rect.height // 2
+        band_specs = {
+            "Jupiter": ((0.52, 0.18), (0.40, 0.11), (0.63, 0.08)),
+            "Saturn": ((0.54, 0.12), (0.42, 0.08), (0.67, 0.05)),
+            "Uranus": ((0.50, 0.06), (0.36, 0.04)),
+            "Neptune": ((0.50, 0.08), (0.36, 0.05)),
+        }
+
+        for y_factor, strength in band_specs.get(body.name, ()):
+            y = int(rect.height * y_factor)
+            height = max(2, int(rect.height * 0.13))
+            color = (*self._lighten(body.color, 1.0 + strength), 52)
+            band_rect = pygame.Rect(int(rect.width * 0.1), y - height // 2, int(rect.width * 0.8), height)
+            pygame.draw.ellipse(band_surface, color, band_rect)
+
+        surface.blit(band_surface, rect.topleft, special_flags=pygame.BLEND_ALPHA_SDL2)
+
+    def _draw_terrestrial_markings(
+        self,
+        surface: pygame.Surface,
+        center: Vector2,
+        radius: int,
+        body: CelestialBody,
+    ) -> None:
+        if body.name == "Earth":
+            pygame.draw.circle(surface, (114, 143, 96, 110), self._point(center + Vector2(-radius * 0.18, -radius * 0.05)), max(2, int(radius * 0.26)))
+            pygame.draw.circle(surface, (123, 152, 102, 90), self._point(center + Vector2(radius * 0.1, radius * 0.22)), max(2, int(radius * 0.2)))
+        elif body.name == "Mars":
+            pygame.draw.circle(surface, (188, 146, 124, 70), self._point(center + Vector2(radius * 0.12, -radius * 0.2)), max(2, int(radius * 0.18)))
+            pygame.draw.circle(surface, (120, 82, 64, 74), self._point(center + Vector2(-radius * 0.24, radius * 0.14)), max(2, int(radius * 0.22)))
+        elif body.name == "Venus":
+            pygame.draw.circle(surface, (204, 184, 148, 58), self._point(center + Vector2(-radius * 0.16, 0)), max(2, int(radius * 0.34)))
+        else:
+            pygame.draw.circle(surface, (188, 182, 172, 46), self._point(center + Vector2(-radius * 0.18, radius * 0.12)), max(2, int(radius * 0.16)))
+
+    def _draw_planet_halo(
+        self,
+        surface: pygame.Surface,
+        screen_pos: tuple[int, int],
+        planet_radius: int,
+        body: CelestialBody,
+    ) -> None:
+        halo_alpha = 10 if body.name in {"Mercury", "Venus", "Earth", "Mars"} else 16
+        halo_radius = int(planet_radius * 2.1)
+        halo_surface = pygame.Surface((halo_radius * 2, halo_radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(halo_surface, (*body.color, halo_alpha), (halo_radius, halo_radius), halo_radius)
+        surface.blit(halo_surface, (screen_pos[0] - halo_radius, screen_pos[1] - halo_radius), special_flags=pygame.BLEND_ALPHA_SDL2)
+
+    def _draw_saturn_rings(self, surface: pygame.Surface, center: tuple[int, int], radius: int) -> None:
+        ring_size = radius * 6
+        back_rings = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
+        front_rings = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
+        front_rings.set_clip(pygame.Rect(0, ring_size // 2, ring_size, ring_size // 2))
+        ellipse_rect = pygame.Rect(0, 0, ring_size, int(ring_size * 0.44))
+        ellipse_rect.center = (ring_size // 2, ring_size // 2)
+
+        for width_factor, alpha in ((0.2, 42), (0.14, 56), (0.08, 30)):
+            line_width = max(1, int(radius * width_factor))
+            color = (208, 194, 164, alpha)
+            pygame.draw.ellipse(back_rings, color, ellipse_rect, line_width)
+            pygame.draw.ellipse(front_rings, color, ellipse_rect, line_width)
+
+        front_rings.set_clip(None)
+        surface.blit(back_rings, (center[0] - ring_size // 2, center[1] - ring_size // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
+        surface.blit(front_rings, (center[0] - ring_size // 2, center[1] - ring_size // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
 
     def _darken(self, color: tuple[int, int, int], factor: float) -> tuple[int, int, int]:
+        return tuple(max(0, min(255, int(channel * factor))) for channel in color)
+
+    def _lighten(self, color: tuple[int, int, int], factor: float) -> tuple[int, int, int]:
         return tuple(max(0, min(255, int(channel * factor))) for channel in color)
 
     def _point(self, vector: Vector2) -> tuple[int, int]:
