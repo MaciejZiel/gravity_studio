@@ -7,9 +7,9 @@ from pygame import Vector2
 
 from orbit_sim.background import StarField
 from orbit_sim.config import (
+    FALLBACK_WINDOW_SIZE,
     SPACE_COLOR,
     TARGET_FPS,
-    WINDOW_SIZE,
 )
 from orbit_sim.models import CelestialBody
 from orbit_sim.rendering import SceneRenderer
@@ -21,10 +21,11 @@ class GravityStudioApp:
     def __init__(self) -> None:
         pygame.init()
         pygame.display.set_caption("Gravity Studio")
-        self.screen = pygame.display.set_mode(WINDOW_SIZE)
+        self.viewport = self._detect_viewport()
+        self.screen = self._create_display_surface()
         self.clock = pygame.time.Clock()
-        self.scene_center = Vector2(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] / 2)
-        self.star_field = StarField(WINDOW_SIZE)
+        self.scene_center = Vector2(self.viewport[0] / 2, self.viewport[1] / 2)
+        self.star_field = StarField(self.viewport)
         self.simulation = OrbitalSimulation()
         self.hud = HudChrome()
         self.info_panel = InfoPanel()
@@ -36,7 +37,7 @@ class GravityStudioApp:
         self.panel_body: CelestialBody | None = None
         self.panel_visibility = 0.0
         self.hovered_action: str | None = None
-        self.control_buttons = self.control_bar.build_buttons(*WINDOW_SIZE, paused=False)
+        self.control_buttons = self.control_bar.build_buttons(*self.viewport, paused=False)
         self.zoom = 1.0
         self.target_zoom = 1.0
         self.paused = False
@@ -70,7 +71,7 @@ class GravityStudioApp:
         if not self.paused:
             self.simulation.update(dt)
         self.zoom += (self.target_zoom - self.zoom) * min(1.0, dt * 8.0)
-        self.control_buttons = self.control_bar.build_buttons(*WINDOW_SIZE, paused=self.paused)
+        self.control_buttons = self.control_bar.build_buttons(*self.viewport, paused=self.paused)
         self.hovered_action = self.action_at_screen_position(pygame.mouse.get_pos())
         self.hovered_body = self.body_at_screen_position(Vector2(pygame.mouse.get_pos()))
         if self.selected_body is not None:
@@ -138,3 +139,16 @@ class GravityStudioApp:
             self.panel_visibility = 0.0
         elif action == "add_planet":
             self.selected_body = self.simulation.add_body()
+
+    def _detect_viewport(self) -> tuple[int, int]:
+        info = pygame.display.Info()
+        width = info.current_w or FALLBACK_WINDOW_SIZE[0]
+        height = info.current_h or FALLBACK_WINDOW_SIZE[1]
+        return width, height
+
+    def _create_display_surface(self) -> pygame.Surface:
+        driver = pygame.display.get_driver()
+        if driver == "dummy":
+            return pygame.display.set_mode(self.viewport)
+
+        return pygame.display.set_mode(self.viewport, pygame.FULLSCREEN)

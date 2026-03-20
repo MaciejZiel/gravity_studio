@@ -5,7 +5,7 @@ from math import sin
 import pygame
 from pygame import Vector2
 
-from orbit_sim.config import SPACE_HAZE, STAR_CORE, STAR_GLOW, WINDOW_SIZE
+from orbit_sim.config import SPACE_HAZE, STAR_CORE, STAR_GLOW
 from orbit_sim.models import CelestialBody
 
 
@@ -26,33 +26,40 @@ class SceneRenderer:
         self.draw_planets(surface, scene_center, bodies, elapsed_time, zoom, hovered_body, selected_body)
 
     def draw_space_haze(self, surface: pygame.Surface, zoom: float) -> None:
-        haze = pygame.Surface(WINDOW_SIZE, pygame.SRCALPHA)
-        center = (WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2)
+        size = surface.get_size()
+        haze = pygame.Surface(size, pygame.SRCALPHA)
+        center = (size[0] // 2, size[1] // 2)
         haze_scale = 0.9 + (zoom - 1.0) * 0.18
 
-        for radius, alpha in ((360, 16), (250, 28), (170, 42)):
+        min_dimension = min(size)
+        for radius_factor, alpha in ((0.4, 16), (0.27, 28), (0.18, 42)):
+            radius = int(min_dimension * radius_factor)
             pygame.draw.circle(haze, (*SPACE_HAZE, alpha), center, int(radius * haze_scale))
 
         surface.blit(haze, (0, 0))
 
     def draw_star(self, surface: pygame.Surface, elapsed_time: float, zoom: float) -> None:
-        center = (WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2)
+        size = surface.get_size()
+        center = (size[0] // 2, size[1] // 2)
         pulse = 1.0 + sin(elapsed_time * 0.9) * 0.018
+        base_glow = max(300, int(min(size) * 0.24))
         star_scale = (0.88 + (zoom - 1.0) * 0.25) * pulse
-        glow_size = int(420 * star_scale)
+        glow_size = int(base_glow * star_scale)
         glow = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
         glow_center = (glow_size // 2, glow_size // 2)
 
-        for radius, alpha in ((150, 12), (100, 20), (72, 34), (46, 56)):
-            pygame.draw.circle(glow, (*STAR_GLOW, alpha), glow_center, int(radius * star_scale))
+        for radius_factor, alpha in ((0.36, 12), (0.24, 20), (0.17, 34), (0.11, 56)):
+            pygame.draw.circle(glow, (*STAR_GLOW, alpha), glow_center, max(1, int(glow_size * radius_factor)))
 
         surface.blit(
             glow,
             (center[0] - glow_size // 2, center[1] - glow_size // 2),
             special_flags=pygame.BLEND_ALPHA_SDL2,
         )
-        pygame.draw.circle(surface, STAR_GLOW, center, int(22 * star_scale))
-        pygame.draw.circle(surface, STAR_CORE, center, int(14 * star_scale))
+        sun_outer = max(16, int(min(size) * 0.015 * star_scale))
+        sun_inner = max(10, int(sun_outer * 0.62))
+        pygame.draw.circle(surface, STAR_GLOW, center, sun_outer)
+        pygame.draw.circle(surface, STAR_CORE, center, sun_inner)
 
     def draw_orbits(
         self,
@@ -62,7 +69,7 @@ class SceneRenderer:
         zoom: float,
         selected_body: CelestialBody | None,
     ) -> None:
-        orbit_surface = pygame.Surface(WINDOW_SIZE, pygame.SRCALPHA)
+        orbit_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
         center = (int(scene_center.x), int(scene_center.y))
 
         for body in bodies:
