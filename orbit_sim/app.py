@@ -38,6 +38,8 @@ class GravityStudioApp:
         self.selected_body: CelestialBody | None = None
         self.panel_body: CelestialBody | None = None
         self.panel_visibility = 0.0
+        self.zoom = 1.0
+        self.target_zoom = 1.0
         self.running = True
 
     def run(self) -> None:
@@ -56,10 +58,13 @@ class GravityStudioApp:
                 self.running = False
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 self.selected_body = self.body_at_screen_position(Vector2(event.pos))
+            elif event.type == pygame.MOUSEWHEEL:
+                self.target_zoom = max(0.65, min(1.85, self.target_zoom + event.y * 0.08))
 
     def update(self, dt: float) -> None:
         self.elapsed_time += dt
         self.simulation.update(dt)
+        self.zoom += (self.target_zoom - self.zoom) * min(1.0, dt * 8.0)
         self.hovered_body = self.body_at_screen_position(Vector2(pygame.mouse.get_pos()))
         if self.selected_body is not None:
             self.panel_body = self.selected_body
@@ -83,23 +88,30 @@ class GravityStudioApp:
     def draw_space_haze(self) -> None:
         haze = pygame.Surface(WINDOW_SIZE, pygame.SRCALPHA)
         center = (WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2)
+        haze_scale = 0.9 + (self.zoom - 1.0) * 0.18
 
         for radius, alpha in ((360, 16), (250, 28), (170, 42)):
-            pygame.draw.circle(haze, (*SPACE_HAZE, alpha), center, radius)
+            pygame.draw.circle(haze, (*SPACE_HAZE, alpha), center, int(radius * haze_scale))
 
         self.screen.blit(haze, (0, 0))
 
     def draw_star(self) -> None:
         center = (WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2)
-        glow = pygame.Surface((420, 420), pygame.SRCALPHA)
-        glow_center = (210, 210)
+        star_scale = 0.88 + (self.zoom - 1.0) * 0.25
+        glow_size = int(420 * star_scale)
+        glow = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        glow_center = (glow_size // 2, glow_size // 2)
 
         for radius, alpha in ((150, 12), (100, 20), (72, 34), (46, 56)):
-            pygame.draw.circle(glow, (*STAR_GLOW, alpha), glow_center, radius)
+            pygame.draw.circle(glow, (*STAR_GLOW, alpha), glow_center, int(radius * star_scale))
 
-        self.screen.blit(glow, (center[0] - 210, center[1] - 210), special_flags=pygame.BLEND_ALPHA_SDL2)
-        pygame.draw.circle(self.screen, STAR_GLOW, center, 22)
-        pygame.draw.circle(self.screen, STAR_CORE, center, 14)
+        self.screen.blit(
+            glow,
+            (center[0] - glow_size // 2, center[1] - glow_size // 2),
+            special_flags=pygame.BLEND_ALPHA_SDL2,
+        )
+        pygame.draw.circle(self.screen, STAR_GLOW, center, int(22 * star_scale))
+        pygame.draw.circle(self.screen, STAR_CORE, center, int(14 * star_scale))
 
     def draw_orbits(self) -> None:
         orbit_surface = pygame.Surface(WINDOW_SIZE, pygame.SRCALPHA)
@@ -107,8 +119,9 @@ class GravityStudioApp:
 
         for body in self.simulation.bodies:
             radius = int(body.orbit_radius)
-            pygame.draw.circle(orbit_surface, (86, 109, 156, 42), center, radius, 1)
-            pygame.draw.circle(orbit_surface, (150, 170, 212, 12), center, radius + 1, 1)
+            scaled_radius = int(radius * self.zoom)
+            pygame.draw.circle(orbit_surface, (86, 109, 156, 42), center, scaled_radius, 1)
+            pygame.draw.circle(orbit_surface, (150, 170, 212, 12), center, scaled_radius + 1, 1)
 
         self.screen.blit(orbit_surface, (0, 0))
 
@@ -122,35 +135,42 @@ class GravityStudioApp:
         for body in self.simulation.bodies:
             position = self.body_screen_position(body)
             screen_pos = (int(position.x), int(position.y))
-            glow = pygame.Surface((90, 90), pygame.SRCALPHA)
+            planet_radius = max(4, int(body.radius * self.zoom))
+            glow_size = max(54, planet_radius * 6)
+            glow = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            glow_center = glow_size // 2
             is_hovered = body is self.hovered_body
             is_selected = body is self.selected_body
 
-            for radius, alpha in ((24, 20), (18, 32), (12, 52)):
-                pygame.draw.circle(glow, (*body.color, alpha), (45, 45), radius)
+            for radius, alpha in (
+                (int(planet_radius * 2.35), 18),
+                (int(planet_radius * 1.75), 30),
+                (int(planet_radius * 1.1), 52),
+            ):
+                pygame.draw.circle(glow, (*body.color, alpha), (glow_center, glow_center), max(4, radius))
 
             self.screen.blit(
                 glow,
-                (screen_pos[0] - 45, screen_pos[1] - 45),
+                (screen_pos[0] - glow_center, screen_pos[1] - glow_center),
                 special_flags=pygame.BLEND_ALPHA_SDL2,
             )
             if is_hovered or is_selected:
                 ring_color = body.accent_color if is_selected else body.color
-                pygame.draw.circle(self.screen, ring_color, screen_pos, int(body.radius) + 7, 1)
-            pygame.draw.circle(self.screen, body.color, screen_pos, int(body.radius))
+                pygame.draw.circle(self.screen, ring_color, screen_pos, planet_radius + 7, 1)
+            pygame.draw.circle(self.screen, body.color, screen_pos, planet_radius)
             pygame.draw.circle(
                 self.screen,
                 body.accent_color,
                 (screen_pos[0] - 3, screen_pos[1] - 3),
-                max(2, int(body.radius // 3)),
+                max(2, planet_radius // 3),
             )
 
     def body_screen_position(self, body: CelestialBody) -> Vector2:
-        return self.scene_center + body.position()
+        return self.scene_center + body.position() * self.zoom
 
     def body_at_screen_position(self, screen_position: Vector2) -> CelestialBody | None:
         for body in reversed(self.simulation.bodies):
-            if screen_position.distance_to(self.body_screen_position(body)) <= body.radius + 6:
+            if screen_position.distance_to(self.body_screen_position(body)) <= max(4, body.radius * self.zoom) + 6:
                 return body
 
         return None
