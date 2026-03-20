@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 import pygame
 
 from orbit_sim.models import CelestialBody
+
+
+@dataclass
+class ControlButton:
+    action: str
+    label: str
+    rect: pygame.Rect
+    active: bool = False
 
 
 class InfoPanel:
@@ -49,3 +58,59 @@ class InfoPanel:
         panel.blit(label_surface, (26, top))
         panel.blit(value_surface, (168, top - 2))
 
+
+class ControlBar:
+    def __init__(self) -> None:
+        self.button_font = pygame.font.SysFont("segoeui", 16, bold=True)
+
+    def build_buttons(self, width: int, height: int, paused: bool) -> list[ControlButton]:
+        labels = [
+            ("toggle_pause", "Resume" if paused else "Pause", paused),
+            ("reset", "Reset", False),
+        ]
+        buttons: list[ControlButton] = []
+        x = 34
+        y = height - 82
+
+        for action, label, active in labels:
+            button_width = max(104, self.button_font.size(label)[0] + 34)
+            rect = pygame.Rect(x, y, button_width, 46)
+            buttons.append(ControlButton(action=action, label=label, rect=rect, active=active))
+            x += button_width + 12
+
+        return buttons
+
+    def draw(self, surface: pygame.Surface, buttons: list[ControlButton], hovered_action: str | None) -> None:
+        if not buttons:
+            return
+
+        bar_rect = buttons[0].rect.unionall([button.rect for button in buttons[1:]]).inflate(22, 20)
+        shadow = pygame.Surface((bar_rect.width + 20, bar_rect.height + 20), pygame.SRCALPHA)
+        pygame.draw.rect(shadow, (0, 0, 0, 76), shadow.get_rect(), border_radius=28)
+        surface.blit(shadow, (bar_rect.x - 10, bar_rect.y + 8))
+
+        bar = pygame.Surface(bar_rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(bar, (9, 13, 24, 230), bar.get_rect(), border_radius=24)
+        pygame.draw.rect(bar, (47, 61, 92, 196), bar.get_rect(), width=1, border_radius=24)
+        surface.blit(bar, bar_rect.topleft)
+
+        for button in buttons:
+            state_fill = (15, 20, 36, 255)
+            state_border = (55, 72, 108, 255)
+            text_color = (222, 229, 242)
+
+            if button.active:
+                state_fill = (31, 57, 72, 255)
+                state_border = (79, 155, 189, 255)
+            elif button.action == hovered_action:
+                state_fill = (21, 28, 49, 255)
+                state_border = (88, 110, 160, 255)
+
+            button_surface = pygame.Surface(button.rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(button_surface, state_fill, button_surface.get_rect(), border_radius=18)
+            pygame.draw.rect(button_surface, state_border, button_surface.get_rect(), width=1, border_radius=18)
+
+            label_surface = self.button_font.render(button.label, True, text_color)
+            label_rect = label_surface.get_rect(center=button_surface.get_rect().center)
+            button_surface.blit(label_surface, label_rect)
+            surface.blit(button_surface, button.rect.topleft)
