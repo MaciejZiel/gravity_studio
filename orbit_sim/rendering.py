@@ -56,7 +56,7 @@ class SceneRenderer:
         if camera.scene_mode == "focus" and selected_body is not None:
             self.draw_focus_vignette(surface, camera, selected_body)
         if selected_body is not None and self._should_draw_focus_closeup(camera):
-            self.draw_focus_closeup(surface, camera, selected_body, simulation_days, focus_rotation_degrees)
+            self.draw_focus_closeup(surface, camera, selected_body, moons, simulation_days, focus_rotation_degrees)
 
     def draw_space_haze(self, surface: pygame.Surface, zoom: float) -> None:
         cache_key = (surface.get_size(), round(zoom, 2))
@@ -558,6 +558,7 @@ class SceneRenderer:
         surface: pygame.Surface,
         camera: SolarCamera,
         selected_body: CelestialBody,
+        moons: list[MoonBody],
         simulation_days: float,
         focus_rotation_degrees: float,
     ) -> None:
@@ -597,12 +598,42 @@ class SceneRenderer:
             surface.blit(sphere_surface, hero_rect.topleft)
             if selected_body.has_rings:
                 self._draw_saturn_rings(surface, hero_rect.center, diameter // 2, front=True)
+            self._draw_focus_satellites(surface, hero_rect, selected_body, moons)
         else:
             fallback_surface = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)
             center = Vector2(fallback_surface.get_width() / 2, fallback_surface.get_height() / 2)
             light_vector = Vector2(-0.75, -0.28).normalize()
             self._draw_planet_sprite(fallback_surface, center, diameter // 2, selected_body, light_vector)
             surface.blit(fallback_surface, fallback_surface.get_rect(center=hero_rect.center))
+
+    def _draw_focus_satellites(
+        self,
+        surface: pygame.Surface,
+        hero_rect: pygame.Rect,
+        selected_body: CelestialBody,
+        moons: list[MoonBody],
+    ) -> None:
+        focus_moons = [moon for moon in moons if moon.parent_name == selected_body.name]
+        if not focus_moons:
+            return
+
+        layer = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        hero_center = Vector2(hero_rect.center)
+        base_radius = hero_rect.width * 0.68
+        for index, moon in enumerate(focus_moons):
+            orbit_radius = int(base_radius + index * hero_rect.width * 0.12)
+            orbit_rect = pygame.Rect(0, 0, orbit_radius * 2, int(orbit_radius * 0.54))
+            orbit_rect.center = hero_rect.center
+            pygame.draw.ellipse(layer, (94, 106, 126, 58), orbit_rect, 1)
+            moon_offset = moon.orbital_offset()
+            moon_position = hero_center + Vector2(moon_offset.x * orbit_radius, moon_offset.y * orbit_rect.height * 0.5)
+            moon_radius = max(3, int(hero_rect.width * 0.028 * (moon.radius_km / 1737.4) ** 0.3))
+            pygame.draw.circle(layer, (*moon.color, 236), self._point(moon_position), moon_radius)
+            pygame.draw.circle(layer, (*moon.accent_color, 182), self._point(moon_position + Vector2(-moon_radius * 0.3, -moon_radius * 0.16)), max(1, moon_radius - 1))
+            tag = self._label_surface(self.label_font, moon.name, (214, 220, 230))
+            layer.blit(tag, (int(moon_position.x + moon_radius + 8), int(moon_position.y - tag.get_height() / 2)))
+
+        surface.blit(layer, (0, 0))
 
     def focus_closeup_rect(self, surface_size: tuple[int, int], camera: SolarCamera) -> pygame.Rect | None:
         if not self._should_draw_focus_closeup(camera):
