@@ -63,42 +63,20 @@ class GravityStudioApp:
         self.focus_rotation_offset = 0.0
         self.dragging_focus_preview = False
         self.focus_drag_anchor_x = 0
-        self.control_buttons = self.control_bar.build_buttons(
-            *self.viewport,
-            self.camera.layout.ui_scale,
-            paused=False,
-            live_mode=self.simulation.live_mode,
-            sound_enabled=self.settings.master_volume > 0.0,
-            show_orbits=self.show_orbits,
-            show_labels=self.show_labels,
-            scale_mode=self.camera.scale_mode,
-            focus_mode=self.camera.scene_mode == "focus",
-        )
-        self.timeline_buttons = self.timeline_strip.build_speed_buttons(
-            *self.viewport,
-            self.camera.layout.ui_scale,
-            self.simulation.time_speed_index,
-            self.simulation.live_mode,
-        )
+        self.control_buttons = []
+        self.timeline_buttons = []
         self.timeline_slider = self.timeline_strip.build_slider(
             *self.viewport,
             self.camera.layout.ui_scale,
             self.simulation.timeline_progress,
         )
-        self.scene_buttons = self.scene_strip.build_buttons(
-            self.viewport[0],
-            self.camera.layout.ui_scale,
-            self.camera.scene_mode,
-            self.selected_body is not None,
-        )
-        self.date_buttons = self.date_shortcuts.build_buttons(
-            *self.viewport,
-            self.camera.layout.ui_scale,
-            self.active_jump_action(),
-        )
+        self.scene_buttons = []
+        self.date_buttons = []
+        self._ui_layout_key: tuple[object, ...] | None = None
         self.dragging_timeline = False
         self.paused = False
         self.running = True
+        self._refresh_ui_layout(force=True)
 
     def run(self) -> None:
         while self.running:
@@ -153,41 +131,10 @@ class GravityStudioApp:
             self.simulation.update(dt)
         self.camera.update(dt, self.elapsed_time)
         self.soundscape.update(dt, self.camera.scene_mode == "focus", self.simulation.live_mode, self.ui_hidden)
-        self.control_buttons = self.control_bar.build_buttons(
-            *self.viewport,
-            self.camera.layout.ui_scale,
-            paused=self.paused,
-            live_mode=self.simulation.live_mode,
-            sound_enabled=self.settings.master_volume > 0.0,
-            show_orbits=self.show_orbits,
-            show_labels=self.show_labels,
-            scale_mode=self.camera.scale_mode,
-            focus_mode=self.camera.scene_mode == "focus",
-        )
-        self.timeline_buttons = self.timeline_strip.build_speed_buttons(
-            *self.viewport,
-            self.camera.layout.ui_scale,
-            self.simulation.time_speed_index,
-            self.simulation.live_mode,
-        )
-        self.timeline_slider = self.timeline_strip.build_slider(
-            *self.viewport,
-            self.camera.layout.ui_scale,
-            self.simulation.timeline_progress,
-        )
-        self.scene_buttons = self.scene_strip.build_buttons(
-            self.viewport[0],
-            self.camera.layout.ui_scale,
-            self.camera.scene_mode,
-            self.selected_body is not None,
-        )
-        self.date_buttons = self.date_shortcuts.build_buttons(
-            *self.viewport,
-            self.camera.layout.ui_scale,
-            self.active_jump_action(),
-        )
-        self.hovered_action = self.action_at_screen_position(pygame.mouse.get_pos())
-        self.hovered_body = self.body_at_screen_position(Vector2(pygame.mouse.get_pos()))
+        self._refresh_ui_layout()
+        mouse_position = pygame.mouse.get_pos()
+        self.hovered_action = self.action_at_screen_position(mouse_position)
+        self.hovered_body = self.body_at_screen_position(Vector2(mouse_position))
         if self.selected_body is not None:
             self.panel_body = self.selected_body
 
@@ -480,3 +427,58 @@ class GravityStudioApp:
             master_volume=self.settings.master_volume,
         )
         self.settings_store.save(self.settings)
+
+    def _refresh_ui_layout(self, force: bool = False) -> None:
+        layout_key = (
+            self.viewport,
+            round(self.camera.layout.ui_scale, 3),
+            self.paused,
+            self.simulation.live_mode,
+            self.settings.master_volume > 0.0,
+            self.show_orbits,
+            self.show_labels,
+            self.camera.scale_mode,
+            self.camera.scene_mode,
+            self.simulation.time_speed_index,
+            round(self.simulation.timeline_progress, 5),
+            self.selected_body is not None,
+            self.active_jump_action(),
+        )
+        if not force and layout_key == self._ui_layout_key:
+            return
+
+        self._ui_layout_key = layout_key
+        ui_scale = self.camera.layout.ui_scale
+        self.control_buttons = self.control_bar.build_buttons(
+            *self.viewport,
+            ui_scale,
+            paused=self.paused,
+            live_mode=self.simulation.live_mode,
+            sound_enabled=self.settings.master_volume > 0.0,
+            show_orbits=self.show_orbits,
+            show_labels=self.show_labels,
+            scale_mode=self.camera.scale_mode,
+            focus_mode=self.camera.scene_mode == "focus",
+        )
+        self.timeline_buttons = self.timeline_strip.build_speed_buttons(
+            *self.viewport,
+            ui_scale,
+            self.simulation.time_speed_index,
+            self.simulation.live_mode,
+        )
+        self.timeline_slider = self.timeline_strip.build_slider(
+            *self.viewport,
+            ui_scale,
+            self.simulation.timeline_progress,
+        )
+        self.scene_buttons = self.scene_strip.build_buttons(
+            self.viewport[0],
+            ui_scale,
+            self.camera.scene_mode,
+            self.selected_body is not None,
+        )
+        self.date_buttons = self.date_shortcuts.build_buttons(
+            *self.viewport,
+            ui_scale,
+            self.active_jump_action(),
+        )
