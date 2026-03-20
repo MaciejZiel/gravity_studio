@@ -137,8 +137,6 @@ class GravityStudioApp:
             self.selected_body = None
             self.panel_body = None
             self.panel_visibility = 0.0
-        elif action == "add_planet":
-            self.selected_body = self.simulation.add_body()
 
     def _detect_viewport(self) -> tuple[int, int]:
         info = pygame.display.Info()
