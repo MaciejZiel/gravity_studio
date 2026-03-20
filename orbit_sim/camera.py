@@ -60,12 +60,15 @@ class SolarCamera:
         self.target_center = self.current_center
         self.transition_energy = 0.0
         self.layout = self._build_layout(self.current_center, self.current_span_factor)
+        self._body_state_cache: dict[str, tuple[Vector2, float]] = {}
+        self._orbit_cache: dict[tuple[str, int, int, float, float, float], list[Vector2]] = {}
 
     def set_viewport(self, viewport: tuple[int, int]) -> None:
         self.viewport = viewport
         self.current_center = self._base_scene_center(self._scene_preset)
         self.target_center = self.current_center
         self.layout = self._build_layout(self.current_center, self.current_span_factor)
+        self._orbit_cache.clear()
 
     @property
     def _scene_preset(self) -> ScenePreset:
@@ -121,6 +124,8 @@ class SolarCamera:
         self.transition_energy = 0.0
         self.zoom = 1.0
         self.layout = self._build_layout(self.current_center, self.current_span_factor)
+        self._body_state_cache.clear()
+        self._orbit_cache.clear()
 
     def update(self, dt: float, elapsed_time: float) -> None:
         preset = self._scene_preset
@@ -139,6 +144,9 @@ class SolarCamera:
         self.current_span_factor += (self.target_span_factor - self.current_span_factor) * min(1.0, dt * 4.0)
         self.zoom = self.user_zoom * self.scene_zoom
         self.layout = self._build_layout(self.current_center, self.current_span_factor)
+        self._body_state_cache.clear()
+        if len(self._orbit_cache) > 96:
+            self._orbit_cache.clear()
 
     def body_position(self, body: CelestialBody) -> Vector2:
         return self.layout.scene_center + self.project_orbital_offset(body)
@@ -147,12 +155,27 @@ class SolarCamera:
         return self.projected_body_state(body)[1]
 
     def project_orbit_points(self, body: CelestialBody, steps: int = 180) -> list[Vector2]:
-        points: list[Vector2] = []
-        for index in range(steps + 1):
-            angle = (index / steps) * 6.283185307179586
-            projected = self._project_body_vector(body.orbital_position(angle), self.zoom, self.current_compression, self.current_span_factor)
-            points.append(self.layout.scene_center + projected.xy)
-        return points
+        cache_key = (
+            body.name,
+            steps,
+            self.viewport[1],
+            round(self.zoom, 3),
+            round(self.current_compression, 3),
+            round(self.current_span_factor, 3),
+        )
+        if cache_key not in self._orbit_cache:
+            points: list[Vector2] = []
+            for index in range(steps + 1):
+                angle = (index / steps) * 6.283185307179586
+                projected = self._project_body_vector(
+                    body.orbital_position(angle),
+                    self.zoom,
+                    self.current_compression,
+                    self.current_span_factor,
+                )
+                points.append(projected.xy)
+            self._orbit_cache[cache_key] = points
+        return [self.layout.scene_center + point for point in self._orbit_cache[cache_key]]
 
     def orbit_radius(self, body: CelestialBody) -> float:
         return self._orbit_radius_for_distance(body.distance_au, self.zoom, self.current_compression, self.current_span_factor)
@@ -218,12 +241,13 @@ class SolarCamera:
         return (layout.inner_orbit_radius + normalized * layout.orbit_span) * zoom
 
     def projected_body_state(self, body: CelestialBody) -> tuple[Vector2, float]:
-        projected = self._project_body_vector(body.orbital_position(), self.zoom, self.current_compression, self.current_span_factor)
-        return self.layout.scene_center + projected.xy, projected.z
+        if body.name not in self._body_state_cache:
+            projected = self._project_body_vector(body.orbital_position(), self.zoom, self.current_compression, self.current_span_factor)
+            self._body_state_cache[body.name] = (self.layout.scene_center + projected.xy, projected.z)
+        return self._body_state_cache[body.name]
 
     def project_orbital_offset(self, body: CelestialBody) -> Vector2:
-        projected = self._project_body_vector(body.orbital_position(), self.zoom, self.current_compression, self.current_span_factor)
-        return projected.xy
+        return self.projected_body_state(body)[0] - self.layout.scene_center
 
     def _project_body_vector(
         self,
