@@ -7,6 +7,7 @@ from pathlib import Path
 import pygame
 from pygame import Vector2
 
+from orbit_sim.audio import AmbientSoundscape
 from orbit_sim.background import StarField
 from orbit_sim.camera import SolarCamera
 from orbit_sim.config import (
@@ -23,6 +24,7 @@ from orbit_sim.ui import ControlBar, DateShortcutStrip, FocusBadge, HudChrome, I
 
 class GravityStudioApp:
     def __init__(self) -> None:
+        pygame.mixer.pre_init(22050, -16, 2, 512)
         pygame.init()
         pygame.display.set_caption("Gravity Studio: Solar System")
         self.settings_store = StudioSettingsStore(Path.cwd())
@@ -36,6 +38,7 @@ class GravityStudioApp:
         self.camera.set_scene(self.settings.last_scene)
         self.star_field = StarField(self.viewport)
         self.simulation = OrbitalSimulation()
+        self.soundscape = AmbientSoundscape(self.settings.master_volume)
         self.hud = HudChrome()
         self.info_panel = InfoPanel()
         self.focus_badge = FocusBadge()
@@ -63,6 +66,7 @@ class GravityStudioApp:
             self.camera.layout.ui_scale,
             paused=False,
             live_mode=self.simulation.live_mode,
+            sound_enabled=self.settings.master_volume > 0.0,
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
             scale_mode=self.camera.scale_mode,
@@ -101,8 +105,9 @@ class GravityStudioApp:
             self.update(dt)
             self.render()
 
-        pygame.quit()
+        self.soundscape.shutdown()
         self.persist_settings()
+        pygame.quit()
         sys.exit(0)
 
     def handle_events(self) -> None:
@@ -145,11 +150,13 @@ class GravityStudioApp:
         if not self.paused and not self.dragging_timeline:
             self.simulation.update(dt)
         self.camera.update(dt, self.elapsed_time)
+        self.soundscape.update(dt, self.camera.scene_mode == "focus", self.simulation.live_mode, self.ui_hidden)
         self.control_buttons = self.control_bar.build_buttons(
             *self.viewport,
             self.camera.layout.ui_scale,
             paused=self.paused,
             live_mode=self.simulation.live_mode,
+            sound_enabled=self.settings.master_volume > 0.0,
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
             scale_mode=self.camera.scale_mode,
@@ -301,6 +308,10 @@ class GravityStudioApp:
             self.show_orbits = not self.show_orbits
         elif action == "toggle_labels":
             self.show_labels = not self.show_labels
+        elif action == "toggle_sound":
+            enabled = self.settings.master_volume == 0.0
+            self.settings.master_volume = 0.42 if enabled else 0.0
+            self.soundscape.set_enabled(enabled, self.settings.master_volume)
         elif action == "toggle_scale":
             self.camera.toggle_scale_mode()
         elif action == "scene_system":

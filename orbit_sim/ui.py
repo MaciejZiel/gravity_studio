@@ -293,6 +293,7 @@ class ControlBar:
         ui_scale: float,
         paused: bool,
         live_mode: bool,
+        sound_enabled: bool,
         show_orbits: bool,
         show_labels: bool,
         scale_mode: str,
@@ -304,6 +305,7 @@ class ControlBar:
                 ("scene_system", "Back", False),
                 ("toggle_live", "Live", live_mode),
                 ("toggle_pause", "Resume" if paused else "Pause", paused),
+                ("toggle_sound", "Sound", sound_enabled),
                 ("capture_clean", "Clean Shot", False),
                 ("reset", "Reset", False),
             ]
@@ -311,6 +313,7 @@ class ControlBar:
             labels = [
                 ("toggle_live", "Live", live_mode),
                 ("toggle_pause", "Resume" if paused else "Pause", paused),
+                ("toggle_sound", "Sound", sound_enabled),
                 ("toggle_orbits", "Orbits", show_orbits),
                 ("toggle_labels", "Labels", show_labels),
                 ("toggle_scale", f"Scale: {scale_mode.title()}", scale_mode == "expanded"),
