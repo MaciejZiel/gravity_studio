@@ -1,35 +1,34 @@
 PLANET_TEXTURE_SOURCES = {
     "Mercury": {
         "filename": "mercury.jpg",
-        "url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia15/pia15163/PIA15163.jpg",
+        "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20mercury.jpg",
     },
     "Venus": {
         "filename": "venus.jpg",
-        "url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia00/pia00270/PIA00270.jpg",
+        "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20venus%20atmosphere.jpg",
     },
     "Earth": {
         "filename": "earth.jpg",
-        "url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia18/pia18033/PIA18033.jpg",
+        "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20earth%20daymap.jpg",
     },
     "Mars": {
         "filename": "mars.jpg",
-        "url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia00/pia00407/PIA00407.jpg",
+        "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20mars.jpg",
     },
     "Jupiter": {
         "filename": "jupiter.jpg",
-        "url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia19/pia19643/PIA19643.jpg",
+        "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20jupiter.jpg",
     },
     "Saturn": {
         "filename": "saturn.jpg",
-        "url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia08/pia08396/PIA08396.jpg",
+        "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20saturn.jpg",
     },
     "Uranus": {
         "filename": "uranus.jpg",
-        "url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia01/pia01282/PIA01282.jpg",
+        "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20uranus.jpg",
     },
     "Neptune": {
         "filename": "neptune.jpg",
-        "url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia02/pia02209/PIA02209.jpg",
+        "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Solarsystemscope%20texture%202k%20neptune.jpg",
     },
 }
-

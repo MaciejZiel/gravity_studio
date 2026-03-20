@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 import sys
 from urllib.request import urlretrieve
@@ -12,12 +13,16 @@ from orbit_sim.planet_assets import PLANET_TEXTURE_SOURCES
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--refresh", action="store_true")
+    args = parser.parse_args()
+
     output_dir = Path("assets/planets")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for name, config in PLANET_TEXTURE_SOURCES.items():
         output_path = output_dir / config["filename"]
-        if output_path.exists():
+        if output_path.exists() and not args.refresh:
             print(f"skip {name}: {output_path.name}")
             continue
 
