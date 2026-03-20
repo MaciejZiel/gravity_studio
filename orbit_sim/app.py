@@ -51,6 +51,7 @@ class GravityStudioApp:
     def render(self) -> None:
         self.screen.fill(SPACE_COLOR)
         self.draw_space_haze()
+        self.draw_orbits()
         self.draw_star()
         self.draw_planets()
         self.draw_heading()
@@ -76,6 +77,17 @@ class GravityStudioApp:
         self.screen.blit(glow, (center[0] - 210, center[1] - 210), special_flags=pygame.BLEND_ALPHA_SDL2)
         pygame.draw.circle(self.screen, STAR_GLOW, center, 22)
         pygame.draw.circle(self.screen, STAR_CORE, center, 14)
+
+    def draw_orbits(self) -> None:
+        orbit_surface = pygame.Surface(WINDOW_SIZE, pygame.SRCALPHA)
+        center = (int(self.scene_center.x), int(self.scene_center.y))
+
+        for body in self.simulation.bodies:
+            radius = int(body.orbit_radius)
+            pygame.draw.circle(orbit_surface, (86, 109, 156, 42), center, radius, 1)
+            pygame.draw.circle(orbit_surface, (150, 170, 212, 12), center, radius + 1, 1)
+
+        self.screen.blit(orbit_surface, (0, 0))
 
     def draw_heading(self) -> None:
         title = self.title_font.render("GRAVITY STUDIO", True, TITLE_TEXT)
