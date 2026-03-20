@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 
 import pygame
+from pygame import Vector2
 
 from orbit_sim.config import (
     SPACE_COLOR,
@@ -25,6 +26,7 @@ class GravityStudioApp:
         self.clock = pygame.time.Clock()
         self.title_font = pygame.font.SysFont("segoeui", 24)
         self.caption_font = pygame.font.SysFont("segoeui", 14)
+        self.scene_center = Vector2(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] / 2)
         self.simulation = OrbitalSimulation()
         self.running = True
 
@@ -50,6 +52,7 @@ class GravityStudioApp:
         self.screen.fill(SPACE_COLOR)
         self.draw_space_haze()
         self.draw_star()
+        self.draw_planets()
         self.draw_heading()
         pygame.display.flip()
 
@@ -79,3 +82,25 @@ class GravityStudioApp:
         subtitle = self.caption_font.render("Orbital motion study", True, SUBTITLE_TEXT)
         self.screen.blit(title, (44, 34))
         self.screen.blit(subtitle, (46, 66))
+
+    def draw_planets(self) -> None:
+        for body in self.simulation.bodies:
+            position = self.scene_center + body.position()
+            screen_pos = (int(position.x), int(position.y))
+            glow = pygame.Surface((90, 90), pygame.SRCALPHA)
+
+            for radius, alpha in ((24, 20), (18, 32), (12, 52)):
+                pygame.draw.circle(glow, (*body.color, alpha), (45, 45), radius)
+
+            self.screen.blit(
+                glow,
+                (screen_pos[0] - 45, screen_pos[1] - 45),
+                special_flags=pygame.BLEND_ALPHA_SDL2,
+            )
+            pygame.draw.circle(self.screen, body.color, screen_pos, int(body.radius))
+            pygame.draw.circle(
+                self.screen,
+                body.accent_color,
+                (screen_pos[0] - 3, screen_pos[1] - 3),
+                max(2, int(body.radius // 3)),
+            )
