@@ -429,6 +429,62 @@ class SceneStrip:
         self.button_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)), bold=True)
 
 
+class DateShortcutStrip:
+    def __init__(self) -> None:
+        self.scale = 0.0
+        self.button_font: pygame.font.Font | None = None
+        self.label_font: pygame.font.Font | None = None
+
+    def build_buttons(self, width: int, height: int, ui_scale: float, active_action: str | None) -> list[ControlButton]:
+        self._ensure_fonts(ui_scale)
+        labels = [
+            ("jump_now", "Now"),
+            ("jump_equinox", "Equinox"),
+            ("jump_solstice", "Solstice"),
+            ("jump_apollo", "Apollo 11"),
+            ("jump_voyager", "Voyager 1"),
+        ]
+        y = height - int(170 * ui_scale)
+        x = int(width * 0.5) - int(340 * ui_scale)
+        gap = int(8 * ui_scale)
+        buttons: list[ControlButton] = []
+        for action, label in labels:
+            button_width = max(int(70 * ui_scale), self.button_font.size(label)[0] + int(24 * ui_scale))
+            rect = pygame.Rect(x, y, button_width, int(28 * ui_scale))
+            buttons.append(ControlButton(action=action, label=label, rect=rect, active=action == active_action))
+            x += button_width + gap
+        return buttons
+
+    def draw(self, surface: pygame.Surface, buttons: list[ControlButton], ui_scale: float) -> None:
+        self._ensure_fonts(ui_scale)
+        if not buttons:
+            return
+
+        label = self.label_font.render("QUICK DATES", True, (118, 128, 146))
+        surface.blit(label, (buttons[0].rect.x, buttons[0].rect.y - int(18 * ui_scale)))
+        for button in buttons:
+            fill = (9, 12, 19, 210)
+            border = (48, 56, 72, 220)
+            if button.active:
+                fill = (24, 34, 46, 244)
+                border = (112, 126, 148, 240)
+
+            chip = pygame.Surface(button.rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(chip, fill, chip.get_rect(), border_radius=int(12 * ui_scale))
+            pygame.draw.rect(chip, border, chip.get_rect(), width=1, border_radius=int(12 * ui_scale))
+            text = self.button_font.render(button.label, True, (220, 226, 234))
+            chip.blit(text, text.get_rect(center=chip.get_rect().center))
+            surface.blit(chip, button.rect.topleft)
+
+    def _ensure_fonts(self, ui_scale: float) -> None:
+        if abs(ui_scale - self.scale) < 0.01:
+            return
+
+        self.scale = ui_scale
+        self.button_font = pygame.font.SysFont("segoeui", max(10, int(11 * ui_scale)), bold=True)
+        self.label_font = pygame.font.SysFont("segoeui", max(9, int(10 * ui_scale)), bold=True)
+
+
 class TimelineStrip:
     def __init__(self) -> None:
         self.scale = 0.0

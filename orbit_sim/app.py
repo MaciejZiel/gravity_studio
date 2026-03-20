@@ -17,7 +17,7 @@ from orbit_sim.config import (
 from orbit_sim.models import CelestialBody
 from orbit_sim.rendering import SceneRenderer
 from orbit_sim.simulation import OrbitalSimulation
-from orbit_sim.ui import ControlBar, FocusBadge, HudChrome, InfoPanel, SceneStrip, TimelineStrip
+from orbit_sim.ui import ControlBar, DateShortcutStrip, FocusBadge, HudChrome, InfoPanel, SceneStrip, TimelineStrip
 
 
 class GravityStudioApp:
@@ -35,6 +35,7 @@ class GravityStudioApp:
         self.focus_badge = FocusBadge()
         self.control_bar = ControlBar()
         self.scene_strip = SceneStrip()
+        self.date_shortcuts = DateShortcutStrip()
         self.timeline_strip = TimelineStrip()
         self.scene_renderer = SceneRenderer()
         self.elapsed_time = 0.0
@@ -76,6 +77,11 @@ class GravityStudioApp:
             self.camera.layout.ui_scale,
             self.camera.scene_mode,
             self.selected_body is not None,
+        )
+        self.date_buttons = self.date_shortcuts.build_buttons(
+            *self.viewport,
+            self.camera.layout.ui_scale,
+            self.active_jump_action(),
         )
         self.dragging_timeline = False
         self.paused = False
@@ -157,6 +163,11 @@ class GravityStudioApp:
             self.camera.scene_mode,
             self.selected_body is not None,
         )
+        self.date_buttons = self.date_shortcuts.build_buttons(
+            *self.viewport,
+            self.camera.layout.ui_scale,
+            self.active_jump_action(),
+        )
         self.hovered_action = self.action_at_screen_position(pygame.mouse.get_pos())
         self.hovered_body = self.body_at_screen_position(Vector2(pygame.mouse.get_pos()))
         if self.selected_body is not None:
@@ -192,6 +203,7 @@ class GravityStudioApp:
             self.draw_info_panel()
             self.draw_focus_badge(local_now)
             self.draw_controls()
+            self.draw_date_shortcuts()
             self.draw_timeline()
             self.draw_scene_buttons()
         self.draw_intro_fade()
@@ -254,11 +266,14 @@ class GravityStudioApp:
     def draw_scene_buttons(self) -> None:
         self.scene_strip.draw(self.screen, self.scene_buttons, self.camera.layout.ui_scale)
 
+    def draw_date_shortcuts(self) -> None:
+        self.date_shortcuts.draw(self.screen, self.date_buttons, self.camera.layout.ui_scale)
+
     def action_at_screen_position(self, position: tuple[int, int]) -> str | None:
         if self.ui_hidden:
             return None
 
-        for button in [*self.control_buttons, *self.timeline_buttons, *self.scene_buttons]:
+        for button in [*self.control_buttons, *self.timeline_buttons, *self.scene_buttons, *self.date_buttons]:
             if button.rect.collidepoint(position):
                 return button.action
 
@@ -297,6 +312,10 @@ class GravityStudioApp:
             self.panel_body = None
             self.panel_visibility = 0.0
             self.focus_rotation_offset = 0.0
+        elif action.startswith("jump_"):
+            self.simulation.jump_to_bookmark(action)
+            if action == "jump_now":
+                self.paused = False
 
     def handle_keydown(self, event: pygame.event.Event) -> None:
         if event.key == pygame.K_SPACE:
@@ -378,6 +397,16 @@ class GravityStudioApp:
 
     def should_draw_focus_badge(self) -> bool:
         return self.camera.scene_mode == "focus" or self.camera.zoom >= 1.65
+
+    def active_jump_action(self) -> str | None:
+        if self.simulation.live_mode:
+            return "jump_now"
+
+        current = self.simulation.current_datetime()
+        for bookmark in self.simulation.bookmarks()[1:]:
+            if abs((bookmark.moment - current).total_seconds()) <= 3600 * 12:
+                return bookmark.action
+        return None
 
     def _detect_viewport(self) -> tuple[int, int]:
         info = pygame.display.Info()
