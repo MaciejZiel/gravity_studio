@@ -6,11 +6,14 @@ A fullscreen, astronomy-inspired Solar System visualization built with Python an
 
 - Fullscreen launch with responsive scaling for large displays
 - Real Solar System dataset with the Sun and all 8 planets in correct order
-- Compressed but realistic-inspired orbit scaling for readability
-- Minimal orbit lines, restrained solar glow, and subdued planet rendering
-- Saturn ring rendering with separate front and back layers
-- Planet labels, zoom, pause/resume, orbit toggle, label toggle, and scale mode toggle
-- Selected planet info card with radius, distance, orbital period, and a short fact
+- Compressed but realistic-inspired orbit scaling for readability, with alternate scale mode
+- Scene presets for `System`, `Inner`, `Outer`, and planet `Focus` views
+- Timeline scrubber with simulation date and `1x / 10x / 100x / 1000x` time controls
+- Minimal orbit lines, cinematic focus vignette, and restrained solar rendering
+- Richer planet treatment with surface cues, atmospheres, and Saturn ring shadowing
+- Adaptive planet labels that respond to scene and zoom level
+- Selected planet info card with radius, distance, orbital period, fact, and Earth comparison
+- Screenshot capture and hide-UI presentation mode
 - Modular separation between data, simulation, camera, rendering, background, and UI
 
 ## Run locally
@@ -32,10 +35,16 @@ python -m orbit_sim
 
 - `Left click`: select a planet
 - `Mouse wheel`: zoom in or out
+- `Q / W / E`: switch between `System`, `Inner`, and `Outer` scenes
+- `F`: jump to focus view for the selected planet
+- `1 / 2 / 3 / 4`: switch time speed presets
+- `Timeline scrubber`: drag to set the simulation date
 - `Pause` / `Resume`: stop or continue orbital motion
 - `Orbits`: show or hide orbit lines
 - `Labels`: show or hide planet labels
 - `Scale`: switch between compressed and expanded distance scaling
+- `H`: hide or reveal the UI
+- `P`: capture a screenshot into `screenshots/`
 - `Reset`: restore the original system state
 
 ## Project layout
