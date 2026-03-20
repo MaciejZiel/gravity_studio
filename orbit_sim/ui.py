@@ -296,16 +296,26 @@ class ControlBar:
         show_orbits: bool,
         show_labels: bool,
         scale_mode: str,
+        focus_mode: bool,
     ) -> list[ControlButton]:
         self._ensure_fonts(ui_scale)
-        labels = [
-            ("toggle_live", "Live", live_mode),
-            ("toggle_pause", "Resume" if paused else "Pause", paused),
-            ("toggle_orbits", "Orbits", show_orbits),
-            ("toggle_labels", "Labels", show_labels),
-            ("toggle_scale", f"Scale: {scale_mode.title()}", scale_mode == "expanded"),
-            ("reset", "Reset", False),
-        ]
+        if focus_mode:
+            labels = [
+                ("scene_system", "Back", False),
+                ("toggle_live", "Live", live_mode),
+                ("toggle_pause", "Resume" if paused else "Pause", paused),
+                ("capture_clean", "Clean Shot", False),
+                ("reset", "Reset", False),
+            ]
+        else:
+            labels = [
+                ("toggle_live", "Live", live_mode),
+                ("toggle_pause", "Resume" if paused else "Pause", paused),
+                ("toggle_orbits", "Orbits", show_orbits),
+                ("toggle_labels", "Labels", show_labels),
+                ("toggle_scale", f"Scale: {scale_mode.title()}", scale_mode == "expanded"),
+                ("reset", "Reset", False),
+            ]
         margin_x = int(38 * ui_scale)
         y = height - int(82 * ui_scale)
         gap = int(10 * ui_scale)

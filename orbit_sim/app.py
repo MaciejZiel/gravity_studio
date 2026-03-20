@@ -60,6 +60,7 @@ class GravityStudioApp:
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
             scale_mode=self.camera.scale_mode,
+            focus_mode=self.camera.scene_mode == "focus",
         )
         self.timeline_buttons = self.timeline_strip.build_speed_buttons(
             *self.viewport,
@@ -145,6 +146,7 @@ class GravityStudioApp:
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
             scale_mode=self.camera.scale_mode,
+            focus_mode=self.camera.scene_mode == "focus",
         )
         self.timeline_buttons = self.timeline_strip.build_speed_buttons(
             *self.viewport,
@@ -200,10 +202,12 @@ class GravityStudioApp:
         )
         if not self.ui_hidden:
             self.draw_hud(local_now)
-            self.draw_info_panel()
+            if self.camera.scene_mode != "focus":
+                self.draw_info_panel()
             self.draw_focus_badge(local_now)
             self.draw_controls()
-            self.draw_date_shortcuts()
+            if self.camera.scene_mode != "focus":
+                self.draw_date_shortcuts()
             self.draw_timeline()
             self.draw_scene_buttons()
         self.draw_intro_fade()
@@ -312,6 +316,8 @@ class GravityStudioApp:
             self.panel_body = None
             self.panel_visibility = 0.0
             self.focus_rotation_offset = 0.0
+        elif action == "capture_clean":
+            self.capture_screenshot(clean=True)
         elif action.startswith("jump_"):
             self.simulation.jump_to_bookmark(action)
             if action == "jump_now":
@@ -347,12 +353,17 @@ class GravityStudioApp:
         elif event.key == pygame.K_e:
             self.handle_action("scene_outer")
 
-    def capture_screenshot(self) -> None:
+    def capture_screenshot(self, clean: bool = False) -> None:
         screenshot_dir = Path("screenshots")
         screenshot_dir.mkdir(exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        output_path = screenshot_dir / f"gravity-studio-{timestamp}.png"
-        pygame.image.save(self.screen, output_path)
+        suffix = "-clean" if clean else ""
+        output_path = screenshot_dir / f"gravity-studio-{timestamp}{suffix}.png"
+        if clean:
+            capture_surface = self._render_capture_surface()
+            pygame.image.save(capture_surface, output_path)
+        else:
+            pygame.image.save(self.screen, output_path)
         self.notification_text = f"Captured {output_path.name}"
         self.notification_timer = 2.0
 
@@ -420,3 +431,21 @@ class GravityStudioApp:
             return pygame.display.set_mode(self.viewport)
 
         return pygame.display.set_mode(self.viewport, pygame.FULLSCREEN)
+
+    def _render_capture_surface(self) -> pygame.Surface:
+        capture_surface = pygame.Surface(self.viewport)
+        capture_surface.fill(SPACE_COLOR)
+        self.star_field.draw(capture_surface, self.elapsed_time, self.camera.background_parallax)
+        self.scene_renderer.draw(
+            capture_surface,
+            self.camera,
+            self.simulation.bodies,
+            self.elapsed_time,
+            self.simulation.simulation_days,
+            self.hovered_body,
+            self.selected_body,
+            self.show_orbits,
+            self.show_labels,
+            self.focus_rotation_offset,
+        )
+        return capture_surface
