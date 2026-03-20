@@ -340,6 +340,7 @@ class ControlBar:
         sound_enabled: bool,
         show_orbits: bool,
         show_labels: bool,
+        show_missions: bool,
         scale_mode: str,
         focus_mode: bool,
     ) -> list[ControlButton]:
@@ -350,6 +351,7 @@ class ControlBar:
                 ("toggle_live", "Live", live_mode),
                 ("toggle_pause", "Resume" if paused else "Pause", paused),
                 ("toggle_sound", "Sound", sound_enabled),
+                ("toggle_missions", "Missions", show_missions),
                 ("capture_clean", "Clean Shot", False),
                 ("reset", "Reset", False),
             ]
@@ -360,6 +362,7 @@ class ControlBar:
                 ("toggle_sound", "Sound", sound_enabled),
                 ("toggle_orbits", "Orbits", show_orbits),
                 ("toggle_labels", "Labels", show_labels),
+                ("toggle_missions", "Missions", show_missions),
                 ("toggle_scale", f"Scale: {scale_mode.title()}", scale_mode == "expanded"),
                 ("reset", "Reset", False),
             ]

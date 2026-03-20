@@ -249,6 +249,10 @@ class SolarCamera:
     def project_orbital_offset(self, body: CelestialBody) -> Vector2:
         return self.projected_body_state(body)[0] - self.layout.scene_center
 
+    def project_space_point(self, position: Vector3) -> Vector2:
+        projected = self._project_body_vector(position, self.zoom, self.current_compression, self.current_span_factor)
+        return self.layout.scene_center + projected.xy
+
     def _project_body_vector(
         self,
         orbital_position: Vector3,

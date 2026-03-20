@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from math import cos, sin, tau
 
 import pygame
@@ -7,6 +8,7 @@ from pygame import Vector2
 
 from orbit_sim.camera import SolarCamera
 from orbit_sim.config import SPACE_HAZE, STAR_CORE, STAR_GLOW
+from orbit_sim.missions import MISSION_DEFINITIONS, MissionDefinition
 from orbit_sim.models import CelestialBody, MoonBody
 from orbit_sim.planet_sphere import SpinningPlanetRenderer
 from orbit_sim.planet_textures import PlanetTextureLibrary
@@ -32,16 +34,20 @@ class SceneRenderer:
         moons: list[MoonBody],
         elapsed_time: float,
         simulation_days: float,
+        current_time: datetime,
         hovered_body: CelestialBody | None,
         selected_body: CelestialBody | None,
         show_orbits: bool,
         show_labels: bool,
+        show_missions: bool,
         focus_rotation_degrees: float = 0.0,
     ) -> None:
         self._ensure_fonts(camera.layout.ui_scale)
         self.draw_space_haze(surface, camera.zoom)
         if show_orbits:
             self.draw_orbits(surface, camera, bodies, selected_body)
+        if show_missions:
+            self.draw_missions(surface, camera, current_time, selected_body)
         self.draw_star(surface, camera, elapsed_time)
         self.draw_planets(surface, camera, bodies, elapsed_time, hovered_body, selected_body)
         self.draw_moons(surface, camera, bodies, moons, selected_body)
@@ -188,6 +194,89 @@ class SceneRenderer:
             pygame.draw.circle(surface, (*moon.color, 228), self._point(moon_position), moon_radius)
             pygame.draw.circle(surface, (*moon.accent_color, 128), self._point(moon_position + Vector2(-moon_radius * 0.28, -moon_radius * 0.18)), max(1, moon_radius - 1))
             pygame.draw.circle(surface, (238, 242, 246), self._point(moon_position + Vector2(moon_radius * 0.36, moon_radius * 0.18)), 1)
+
+    def draw_missions(
+        self,
+        surface: pygame.Surface,
+        camera: SolarCamera,
+        current_time: datetime,
+        selected_body: CelestialBody | None,
+    ) -> None:
+        mission_layer = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        for mission in MISSION_DEFINITIONS:
+            if mission.frame == "earth_local" and (selected_body is None or selected_body.name != "Earth"):
+                continue
+
+            path = self._mission_points(camera, mission, selected_body)
+            if len(path) < 2:
+                continue
+
+            alpha = 118 if mission.frame == "heliocentric" else 164
+            pygame.draw.aalines(mission_layer, (*mission.color, alpha), False, path)
+            marker = self._mission_marker(path, mission, current_time)
+            pygame.draw.circle(mission_layer, (*mission.color, 228), marker, 4 if mission.frame == "heliocentric" else 5)
+            label = self._label_surface(self.label_font, mission.label, (208, 216, 226))
+            label_pos = (marker[0] + 10, marker[1] - label.get_height() // 2)
+            mission_layer.blit(label, label_pos)
+
+        surface.blit(mission_layer, (0, 0))
+
+    def _mission_points(
+        self,
+        camera: SolarCamera,
+        mission: MissionDefinition,
+        selected_body: CelestialBody | None,
+    ) -> list[tuple[int, int]]:
+        if mission.frame == "heliocentric":
+            return [self._point(camera.project_space_point(pygame.Vector3(x, y, 0.0))) for x, y in mission.path_points]
+
+        if selected_body is None:
+            return []
+
+        parent_position = camera.body_position(selected_body)
+        scale = max(36.0, camera.planet_radius(selected_body) * 5.8)
+        return [
+            self._point(parent_position + Vector2(point[0] * scale, point[1] * scale))
+            for point in mission.path_points
+        ]
+
+    def _mission_marker(
+        self,
+        path: list[tuple[int, int]],
+        mission: MissionDefinition,
+        current_time: datetime,
+    ) -> tuple[int, int]:
+        total = (mission.progress_end - mission.launch).total_seconds()
+        if total <= 0:
+            return path[-1]
+
+        elapsed = (current_time - mission.launch).total_seconds()
+        progress = max(0.0, min(1.0, elapsed / total))
+        return self._interpolate_polyline(path, progress)
+
+    def _interpolate_polyline(self, points: list[tuple[int, int]], progress: float) -> tuple[int, int]:
+        if len(points) == 1:
+            return points[0]
+
+        segment_lengths = []
+        total_length = 0.0
+        for start, end in zip(points, points[1:]):
+            length = Vector2(end).distance_to(Vector2(start))
+            segment_lengths.append(length)
+            total_length += length
+
+        target = total_length * progress
+        traversed = 0.0
+        for index, length in enumerate(segment_lengths):
+            if traversed + length >= target and length > 0:
+                local = (target - traversed) / length
+                start = Vector2(points[index])
+                end = Vector2(points[index + 1])
+                point = start.lerp(end, local)
+                return int(point.x), int(point.y)
+            traversed += length
+
+        return points[-1]
 
     def _should_draw_moon(
         self,

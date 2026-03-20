@@ -57,6 +57,7 @@ class GravityStudioApp:
         self.hovered_action: str | None = None
         self.show_orbits = self.settings.show_orbits
         self.show_labels = self.settings.show_labels
+        self.show_missions = self.settings.show_missions
         self.ui_hidden = self.settings.ui_hidden
         self.notification_text: str | None = None
         self.notification_timer = 0.0
@@ -162,10 +163,12 @@ class GravityStudioApp:
             self.simulation.moons,
             self.elapsed_time,
             self.simulation.simulation_days,
+            self.simulation.current_datetime(),
             self.hovered_body,
             self.selected_body,
             self.show_orbits,
             self.show_labels,
+            self.show_missions,
             self.focus_auto_rotation + self.focus_rotation_offset,
         )
         if not self.ui_hidden:
@@ -267,6 +270,8 @@ class GravityStudioApp:
             self.show_orbits = not self.show_orbits
         elif action == "toggle_labels":
             self.show_labels = not self.show_labels
+        elif action == "toggle_missions":
+            self.show_missions = not self.show_missions
         elif action == "toggle_sound":
             enabled = self.settings.master_volume == 0.0
             self.settings.master_volume = 0.42 if enabled else 0.0
@@ -309,6 +314,8 @@ class GravityStudioApp:
             self.handle_action("toggle_orbits")
         elif event.key == pygame.K_l:
             self.handle_action("toggle_labels")
+        elif event.key == pygame.K_m:
+            self.handle_action("toggle_missions")
         elif event.key == pygame.K_h:
             self.ui_hidden = not self.ui_hidden
         elif event.key == pygame.K_p:
@@ -416,10 +423,12 @@ class GravityStudioApp:
             self.simulation.moons,
             self.elapsed_time,
             self.simulation.simulation_days,
+            self.simulation.current_datetime(),
             self.hovered_body,
             self.selected_body,
             self.show_orbits,
             self.show_labels,
+            self.show_missions,
             self.focus_auto_rotation + self.focus_rotation_offset,
         )
         return capture_surface
@@ -428,6 +437,7 @@ class GravityStudioApp:
         self.settings = StudioSettings(
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
+            show_missions=self.show_missions,
             scale_mode=self.camera.scale_mode,
             last_scene=self.camera.scene_mode,
             ui_hidden=self.ui_hidden,
@@ -449,6 +459,7 @@ class GravityStudioApp:
             self.settings.master_volume > 0.0,
             self.show_orbits,
             self.show_labels,
+            self.show_missions,
             self.camera.scale_mode,
             self.camera.scene_mode,
             self.simulation.time_speed_index,
@@ -469,6 +480,7 @@ class GravityStudioApp:
             sound_enabled=self.settings.master_volume > 0.0,
             show_orbits=self.show_orbits,
             show_labels=self.show_labels,
+            show_missions=self.show_missions,
             scale_mode=self.camera.scale_mode,
             focus_mode=self.camera.scene_mode == "focus",
         )
