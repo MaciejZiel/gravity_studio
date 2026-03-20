@@ -48,6 +48,9 @@ class GravityStudioApp:
         self.ui_hidden = False
         self.notification_text: str | None = None
         self.notification_timer = 0.0
+        self.focus_rotation_offset = 0.0
+        self.dragging_focus_preview = False
+        self.focus_drag_anchor_x = 0
         self.control_buttons = self.control_bar.build_buttons(
             *self.viewport,
             self.camera.layout.ui_scale,
@@ -96,16 +99,28 @@ class GravityStudioApp:
                 action = None if self.ui_hidden else self.action_at_screen_position(event.pos)
                 if action is not None:
                     self.handle_action(action)
+                elif self.focus_preview_hit_test(event.pos):
+                    self.dragging_focus_preview = True
+                    self.focus_drag_anchor_x = event.pos[0]
                 elif not self.ui_hidden and self.timeline_hit_test(event.pos):
                     self.dragging_timeline = True
                     self.update_timeline_from_pointer(event.pos[0])
                 else:
+                    previous_selection = self.selected_body
                     self.selected_body = self.body_at_screen_position(Vector2(event.pos))
+                    if self.selected_body is not previous_selection:
+                        self.focus_rotation_offset = 0.0
                     self.camera.set_focus_body(self.selected_body)
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 self.dragging_timeline = False
-            elif event.type == pygame.MOUSEMOTION and self.dragging_timeline:
-                self.update_timeline_from_pointer(event.pos[0])
+                self.dragging_focus_preview = False
+            elif event.type == pygame.MOUSEMOTION:
+                if self.dragging_focus_preview:
+                    delta_x = event.pos[0] - self.focus_drag_anchor_x
+                    self.focus_drag_anchor_x = event.pos[0]
+                    self.focus_rotation_offset = (self.focus_rotation_offset + delta_x * 0.72) % 360.0
+                elif self.dragging_timeline:
+                    self.update_timeline_from_pointer(event.pos[0])
             elif event.type == pygame.MOUSEWHEEL:
                 self.camera.adjust_zoom(event.y * 0.08)
             elif event.type == pygame.KEYDOWN:
@@ -170,6 +185,7 @@ class GravityStudioApp:
             self.selected_body,
             self.show_orbits,
             self.show_labels,
+            self.focus_rotation_offset,
         )
         if not self.ui_hidden:
             self.draw_hud(local_now)
@@ -278,6 +294,7 @@ class GravityStudioApp:
             self.selected_body = None
             self.panel_body = None
             self.panel_visibility = 0.0
+            self.focus_rotation_offset = 0.0
 
     def handle_keydown(self, event: pygame.event.Event) -> None:
         if event.key == pygame.K_SPACE:
@@ -336,6 +353,18 @@ class GravityStudioApp:
             return False
 
         return self.timeline_slider.track_rect.inflate(0, 18).collidepoint(position) or self.timeline_slider.handle_rect.collidepoint(position)
+
+    def focus_preview_hit_test(self, position: tuple[int, int]) -> bool:
+        if self.selected_body is None:
+            return False
+
+        preview_rect = self.scene_renderer.focus_closeup_rect(self.viewport, self.camera)
+        if preview_rect is None or not preview_rect.collidepoint(position):
+            return False
+
+        center = Vector2(preview_rect.center)
+        radius = preview_rect.width / 2
+        return Vector2(position).distance_to(center) <= radius
 
     def update_timeline_from_pointer(self, x_position: int) -> None:
         relative = (x_position - self.timeline_slider.track_rect.left) / max(1, self.timeline_slider.track_rect.width)
