@@ -26,7 +26,9 @@ class StarField:
         self.base_surface = pygame.Surface(size)
         self.base_surface.fill((3, 5, 10))
         self.haze_surface = pygame.Surface(size, pygame.SRCALPHA)
+        self.static_surface = pygame.Surface(size)
         self.twinkle_surface = pygame.Surface(size, pygame.SRCALPHA)
+        self._static_cache_key: tuple[int, int] | None = None
         self._twinkle_cache_key: tuple[int, int, int] | None = None
         self.star_layers: list[tuple[float, pygame.Surface]] = []
         self.dynamic_stars: list[BackgroundStar] = []
@@ -34,10 +36,14 @@ class StarField:
 
     def draw(self, surface: pygame.Surface, elapsed_time: float, parallax: pygame.Vector2 | None = None) -> None:
         parallax = parallax or pygame.Vector2()
-        surface.blit(self.base_surface, (0, 0))
-        surface.blit(self.haze_surface, self._offset_point(parallax * 0.08))
-        for factor, layer in self.star_layers:
-            surface.blit(layer, self._offset_point(parallax * factor))
+        static_key = (int(parallax.x), int(parallax.y))
+        if static_key != self._static_cache_key:
+            self._static_cache_key = static_key
+            self.static_surface.blit(self.base_surface, (0, 0))
+            self.static_surface.blit(self.haze_surface, self._offset_point(parallax * 0.08))
+            for factor, layer in self.star_layers:
+                self.static_surface.blit(layer, self._offset_point(parallax * factor))
+        surface.blit(self.static_surface, (0, 0))
         twinkle_key = (int(elapsed_time * 12.0), int(parallax.x), int(parallax.y))
         if twinkle_key != self._twinkle_cache_key:
             self._twinkle_cache_key = twinkle_key
