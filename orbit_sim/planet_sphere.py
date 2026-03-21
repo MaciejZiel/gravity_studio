@@ -13,6 +13,7 @@ class SpinningPlanetRenderer:
     def __init__(self, texture_library: PlanetTextureLibrary | None = None) -> None:
         self.texture_library = texture_library or PlanetTextureLibrary()
         self._frame_cache: dict[tuple[str, int, int], pygame.Surface] = {}
+        self._display_cache: dict[tuple[str, int, int], pygame.Surface] = {}
 
     def render(
         self,
@@ -36,10 +37,17 @@ class SpinningPlanetRenderer:
         if frame.get_width() == safe_diameter:
             return frame
 
-        return pygame.transform.smoothscale(frame, (safe_diameter, safe_diameter))
+        display_key = (body.name, safe_diameter, rotation_index)
+        if display_key not in self._display_cache:
+            self._display_cache[display_key] = pygame.transform.smoothscale(frame, (safe_diameter, safe_diameter))
+            if len(self._display_cache) > 192:
+                self._display_cache.clear()
+                self._display_cache[display_key] = pygame.transform.smoothscale(frame, (safe_diameter, safe_diameter))
+        return self._display_cache[display_key]
 
     def clear_frame_cache(self) -> None:
         self._frame_cache.clear()
+        self._display_cache.clear()
 
     def _build_frame(self, body: CelestialBody, diameter: int, rotation_degrees: float, simulation_days: float) -> pygame.Surface:
         texture = self.texture_library.map_texture(body.name, 1024)
