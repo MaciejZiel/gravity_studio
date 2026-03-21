@@ -57,8 +57,9 @@ class GravityStudioApp:
         self.scene_renderer = SceneRenderer()
         self.elapsed_time = 0.0
         self.current_simulation_datetime = self.simulation.current_datetime()
-        self.cached_bookmarks = self.simulation.bookmarks(self.current_simulation_datetime)
+        self.cached_bookmarks = []
         self.cached_active_bookmark = None
+        self._bookmark_refresh_token: tuple[object, ...] | None = None
         self.hovered_body: CelestialBody | None = None
         self.selected_body: CelestialBody | None = None
         self.panel_body: CelestialBody | None = None
@@ -94,6 +95,7 @@ class GravityStudioApp:
         self._presentation_restore_ui_hidden = False
         self.paused = False
         self.running = True
+        self._refresh_bookmarks(force=True)
         self._refresh_ui_layout(force=True)
 
     def run(self) -> None:
@@ -151,8 +153,7 @@ class GravityStudioApp:
             self.simulation.update(dt)
         self._update_tour(dt)
         self.current_simulation_datetime = self.simulation.current_datetime()
-        self.cached_bookmarks = self.simulation.bookmarks(self.current_simulation_datetime)
-        self.cached_active_bookmark = self._resolve_active_bookmark(self.cached_bookmarks, self.current_simulation_datetime)
+        self._refresh_bookmarks()
         self.camera.update(dt, self.elapsed_time)
         self.soundscape.update(dt, self.camera.scene_mode == "focus", self.simulation.live_mode, self.ui_hidden)
         self._refresh_ui_layout()
@@ -680,3 +681,17 @@ class GravityStudioApp:
             if abs((bookmark.moment - current_datetime).total_seconds()) <= 3600 * 12:
                 return bookmark
         return None
+
+    def _refresh_bookmarks(self, force: bool = False) -> None:
+        current_date = self.current_simulation_datetime.date()
+        if self.simulation.live_mode:
+            refresh_token = ("live", current_date)
+        else:
+            refresh_token = (self.current_simulation_datetime.year, current_date.toordinal() // 7)
+        if not force and refresh_token == self._bookmark_refresh_token:
+            self.cached_active_bookmark = self._resolve_active_bookmark(self.cached_bookmarks, self.current_simulation_datetime)
+            return
+
+        self._bookmark_refresh_token = refresh_token
+        self.cached_bookmarks = self.simulation.bookmarks(self.current_simulation_datetime)
+        self.cached_active_bookmark = self._resolve_active_bookmark(self.cached_bookmarks, self.current_simulation_datetime)
