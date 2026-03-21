@@ -44,7 +44,7 @@ class StarField:
             for factor, layer in self.star_layers:
                 self.static_surface.blit(layer, self._offset_point(parallax * factor))
         surface.blit(self.static_surface, (0, 0))
-        twinkle_key = (int(elapsed_time * 12.0), int(parallax.x), int(parallax.y))
+        twinkle_key = (int(elapsed_time * 8.0), int(parallax.x), int(parallax.y))
         if twinkle_key != self._twinkle_cache_key:
             self._twinkle_cache_key = twinkle_key
             self.twinkle_surface.fill((0, 0, 0, 0))
