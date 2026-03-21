@@ -14,6 +14,7 @@ class SpinningPlanetRenderer:
         self.texture_library = texture_library or PlanetTextureLibrary()
         self._frame_cache: dict[tuple[str, int, int], pygame.Surface] = {}
         self._display_cache: dict[tuple[str, int, int], pygame.Surface] = {}
+        self._geometry_cache: dict[tuple[str, int, int], tuple[tuple[int, int, float, float, float, float, float, int], ...]] = {}
 
     def render(
         self,
@@ -49,6 +50,7 @@ class SpinningPlanetRenderer:
     def clear_frame_cache(self) -> None:
         self._frame_cache.clear()
         self._display_cache.clear()
+        self._geometry_cache.clear()
 
     def _build_frame(self, body: CelestialBody, diameter: int, rotation_degrees: float, simulation_days: float) -> pygame.Surface:
         texture = self.texture_library.map_texture(body.name, 1024)
@@ -65,33 +67,18 @@ class SpinningPlanetRenderer:
         texture_height = texture.get_height()
         rotation_radians = rotation_degrees * pi / 180.0
         light_direction = self._light_direction(body, simulation_days)
-        display_tilt = radians(self._display_axial_tilt(body))
         bump_strength = self._bump_strength(body)
+        geometry_samples = self._geometry_samples(body, diameter, texture_height)
         texture.lock()
         sphere.lock()
 
-        for y in range(diameter):
-            y_normalized = (y - center) / radius
-            for x in range(diameter):
-                x_normalized = (x - center) / radius
-                radial_distance = x_normalized * x_normalized + y_normalized * y_normalized
-                if radial_distance > 1.0:
-                    continue
-
-                z_normalized = sqrt(1.0 - radial_distance)
-                surface_normal = self._rotate_z(
-                    Vector3(x_normalized, -y_normalized, z_normalized),
-                    -display_tilt,
-                )
-                longitude = atan2(surface_normal.x, surface_normal.z) + rotation_radians
-                latitude = asin(surface_normal.y)
+        for x, y, normal_x, normal_y, normal_z, base_longitude, latitude, source_y in geometry_samples:
+                longitude = base_longitude + rotation_radians
                 u = ((longitude / (2 * pi)) + 0.5) % 1.0
-                v = max(0.0, min(1.0, 0.5 - latitude / pi))
                 source_x = min(texture_width - 1, int(u * (texture_width - 1)))
-                source_y = min(texture_height - 1, int(v * (texture_height - 1)))
                 source_color = texture.get_at((source_x, source_y))
                 bump = self._bump_vector(luminance_rows, texture_width, texture_height, source_x, source_y, bump_strength)
-                shaded_normal = (surface_normal + bump).normalize()
+                shaded_normal = (Vector3(normal_x, normal_y, normal_z) + bump).normalize()
                 diffuse = max(0.0, shaded_normal.dot(light_direction))
                 lit_color = self._shade_color(body, source_color, diffuse)
                 lit_color = self._apply_terminator_glow(body, lit_color, diffuse)
@@ -101,7 +88,7 @@ class SpinningPlanetRenderer:
                     lit_color = self._add_light_emission(lit_color, night_color, night_mix * 0.8)
                 if body.name == "Earth" and earth_clouds is not None:
                     cloud_rotation = rotation_radians * 1.08 + simulation_days * 0.05
-                    cloud_u = ((atan2(surface_normal.x, surface_normal.z) + cloud_rotation) / (2 * pi) + 0.5) % 1.0
+                    cloud_u = ((base_longitude + cloud_rotation) / (2 * pi) + 0.5) % 1.0
                     cloud_x = min(texture_width - 1, int(cloud_u * (texture_width - 1)))
                     cloud_color = earth_clouds.get_at((cloud_x, source_y))
                     cloud_mix = max(0.0, (self._luminance(cloud_color) - 0.46) * 1.8)
@@ -116,6 +103,45 @@ class SpinningPlanetRenderer:
         self._draw_rim_light(sphere, body)
         self._draw_atmosphere(sphere, body)
         return sphere
+
+    def _geometry_samples(
+        self,
+        body: CelestialBody,
+        diameter: int,
+        texture_height: int,
+    ) -> tuple[tuple[int, int, float, float, float, float, float, int], ...]:
+        cache_key = (body.name, diameter, texture_height)
+        if cache_key not in self._geometry_cache:
+            radius = diameter / 2
+            center = radius - 0.5
+            display_tilt = radians(self._display_axial_tilt(body))
+            cos_tilt = cos(-display_tilt)
+            sin_tilt = sin(-display_tilt)
+            samples: list[tuple[int, int, float, float, float, float, float, int]] = []
+
+            for y in range(diameter):
+                y_normalized = (y - center) / radius
+                for x in range(diameter):
+                    x_normalized = (x - center) / radius
+                    radial_distance = x_normalized * x_normalized + y_normalized * y_normalized
+                    if radial_distance > 1.0:
+                        continue
+
+                    z_normalized = sqrt(1.0 - radial_distance)
+                    normal_x = x_normalized * cos_tilt - (-y_normalized) * sin_tilt
+                    normal_y = x_normalized * sin_tilt + (-y_normalized) * cos_tilt
+                    normal_z = z_normalized
+                    base_longitude = atan2(normal_x, normal_z)
+                    latitude = asin(normal_y)
+                    v = max(0.0, min(1.0, 0.5 - latitude / pi))
+                    source_y = min(texture_height - 1, int(v * (texture_height - 1)))
+                    samples.append((x, y, normal_x, normal_y, normal_z, base_longitude, latitude, source_y))
+
+            self._geometry_cache[cache_key] = tuple(samples)
+            if len(self._geometry_cache) > 16:
+                self._geometry_cache.clear()
+                self._geometry_cache[cache_key] = tuple(samples)
+        return self._geometry_cache[cache_key]
 
     def _draw_rim_light(self, sphere: pygame.Surface, body: CelestialBody) -> None:
         radius = sphere.get_width() // 2
