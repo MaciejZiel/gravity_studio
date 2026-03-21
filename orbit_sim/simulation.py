@@ -40,6 +40,8 @@ class OrbitalSimulation:
         self.moons = self._default_moons()
         self._alignment_cache_anchor: date | None = None
         self._alignment_cache: TimelineBookmark | None = None
+        self._bookmark_cache_key: tuple[date, int] | None = None
+        self._bookmark_cache_rest: tuple[TimelineBookmark, ...] = ()
         self._sync_body_angles()
 
     def update(self, dt: float) -> None:
@@ -55,6 +57,8 @@ class OrbitalSimulation:
         self.moons = self._default_moons()
         self._alignment_cache_anchor = None
         self._alignment_cache = None
+        self._bookmark_cache_key = None
+        self._bookmark_cache_rest = ()
         self._sync_body_angles()
 
     @property
@@ -112,21 +116,32 @@ class OrbitalSimulation:
     def current_datetime(self) -> datetime:
         return self.epoch + timedelta(days=self.simulation_days)
 
-    def bookmarks(self) -> list[TimelineBookmark]:
-        current_year = self.current_datetime().year
-        next_alignment = self._next_alignment_bookmark()
+    def bookmarks(self, moment: datetime | None = None) -> list[TimelineBookmark]:
+        current_moment = self.current_datetime() if moment is None else moment
+        cache_key = (current_moment.date(), current_moment.year)
+        if self._bookmark_cache_key != cache_key:
+            current_year = current_moment.year
+            next_alignment = self._next_alignment_bookmark(current_moment.date())
+            self._bookmark_cache_key = cache_key
+            self._bookmark_cache_rest = (
+                next_alignment,
+                TimelineBookmark("jump_equinox", "Equinox", datetime(current_year, 3, 20, 12, 0, 0), "Solar illumination crosses Earth's equator evenly.", "Earth"),
+                TimelineBookmark("jump_solstice", "Solstice", datetime(current_year, 6, 21, 12, 0, 0), "Earth's axial tilt is at a seasonal extreme.", "Earth"),
+                TimelineBookmark("jump_eclipse", "Eclipse Season", datetime(2024, 4, 8, 18, 18, 0), "The Sun, Moon and Earth line up for the 2024 total solar eclipse.", "Earth"),
+                TimelineBookmark("jump_apollo", "Apollo 11", datetime(1969, 7, 20, 20, 17, 0), "Apollo 11 lands in the Sea of Tranquility.", "Earth"),
+                TimelineBookmark("jump_voyager", "Voyager 1", datetime(1977, 9, 5, 12, 56, 0), "Voyager 1 begins its outward grand tour.", "Jupiter"),
+                TimelineBookmark("jump_webb", "JWST", datetime(2022, 1, 24, 19, 0, 0), "James Webb settles near the Earth-Sun L2 point.", "Earth"),
+            )
         return [
             TimelineBookmark("jump_now", "Now", datetime.now().replace(microsecond=0), "Match the current live heliocentric arrangement."),
-            next_alignment,
-            TimelineBookmark("jump_equinox", "Equinox", datetime(current_year, 3, 20, 12, 0, 0), "Solar illumination crosses Earth's equator evenly.", "Earth"),
-            TimelineBookmark("jump_solstice", "Solstice", datetime(current_year, 6, 21, 12, 0, 0), "Earth's axial tilt is at a seasonal extreme.", "Earth"),
-            TimelineBookmark("jump_eclipse", "Eclipse Season", datetime(2024, 4, 8, 18, 18, 0), "The Sun, Moon and Earth line up for the 2024 total solar eclipse.", "Earth"),
-            TimelineBookmark("jump_apollo", "Apollo 11", datetime(1969, 7, 20, 20, 17, 0), "Apollo 11 lands in the Sea of Tranquility.", "Earth"),
-            TimelineBookmark("jump_voyager", "Voyager 1", datetime(1977, 9, 5, 12, 56, 0), "Voyager 1 begins its outward grand tour.", "Jupiter"),
-            TimelineBookmark("jump_webb", "JWST", datetime(2022, 1, 24, 19, 0, 0), "James Webb settles near the Earth-Sun L2 point.", "Earth"),
+            *self._bookmark_cache_rest,
         ]
 
     def jump_to_bookmark(self, action: str) -> None:
+        if action == "jump_now":
+            self.live_mode = True
+            self.sync_to_datetime(datetime.now())
+            return
         for bookmark in self.bookmarks():
             if bookmark.action == action:
                 self.live_mode = action == "jump_now"
@@ -194,8 +209,8 @@ class OrbitalSimulation:
         for moon in self.moons:
             moon.angle = moon.starting_angle + moon.angular_speed * self.simulation_days
 
-    def _next_alignment_bookmark(self) -> TimelineBookmark:
-        anchor_date = self.current_datetime().date()
+    def _next_alignment_bookmark(self, anchor_date: date | None = None) -> TimelineBookmark:
+        anchor_date = self.current_datetime().date() if anchor_date is None else anchor_date
         if self._alignment_cache_anchor == anchor_date and self._alignment_cache is not None:
             return self._alignment_cache
 

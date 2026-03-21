@@ -56,6 +56,9 @@ class GravityStudioApp:
         self.timeline_strip = TimelineStrip()
         self.scene_renderer = SceneRenderer()
         self.elapsed_time = 0.0
+        self.current_simulation_datetime = self.simulation.current_datetime()
+        self.cached_bookmarks = self.simulation.bookmarks(self.current_simulation_datetime)
+        self.cached_active_bookmark = None
         self.hovered_body: CelestialBody | None = None
         self.selected_body: CelestialBody | None = None
         self.panel_body: CelestialBody | None = None
@@ -147,6 +150,9 @@ class GravityStudioApp:
         if not self.paused and not self.dragging_timeline:
             self.simulation.update(dt)
         self._update_tour(dt)
+        self.current_simulation_datetime = self.simulation.current_datetime()
+        self.cached_bookmarks = self.simulation.bookmarks(self.current_simulation_datetime)
+        self.cached_active_bookmark = self._resolve_active_bookmark(self.cached_bookmarks, self.current_simulation_datetime)
         self.camera.update(dt, self.elapsed_time)
         self.soundscape.update(dt, self.camera.scene_mode == "focus", self.simulation.live_mode, self.ui_hidden)
         self._refresh_ui_layout()
@@ -245,12 +251,12 @@ class GravityStudioApp:
             self.screen,
             self.selected_body,
             local_now.strftime("%H:%M:%S"),
-            self.simulation.current_datetime().strftime("%H:%M:%S"),
+            self.current_simulation_datetime.strftime("%H:%M:%S"),
             self.camera.layout.ui_scale,
         )
 
     def draw_timeline(self) -> None:
-        date_label = self.simulation.current_datetime().strftime("%b %d, %Y  %H:%M:%S")
+        date_label = self.current_simulation_datetime.strftime("%b %d, %Y  %H:%M:%S")
         self.timeline_strip.draw(
             self.screen,
             self.timeline_buttons,
@@ -269,7 +275,7 @@ class GravityStudioApp:
         self.date_shortcuts.draw(self.screen, self.date_buttons, self.camera.layout.ui_scale)
 
     def draw_event_highlight(self) -> None:
-        bookmark = self.active_bookmark()
+        bookmark = self.cached_active_bookmark
         if bookmark is not None and bookmark.action != "jump_now":
             self.event_highlight.draw(self.screen, bookmark, self.camera.layout.ui_scale)
 
@@ -455,21 +461,11 @@ class GravityStudioApp:
         return self.camera.scene_mode == "focus" or self.camera.zoom >= 1.65
 
     def active_jump_action(self) -> str | None:
-        bookmark = self.active_bookmark()
+        bookmark = self.cached_active_bookmark
         return None if bookmark is None else bookmark.action
 
     def active_bookmark(self):
-        if self.simulation.live_mode:
-            for bookmark in self.simulation.bookmarks():
-                if bookmark.action == "jump_now":
-                    return bookmark
-            return None
-
-        current = self.simulation.current_datetime()
-        for bookmark in self.simulation.bookmarks()[1:]:
-            if abs((bookmark.moment - current).total_seconds()) <= 3600 * 12:
-                return bookmark
-        return None
+        return self.cached_active_bookmark
 
     def sky_context_markers(self) -> list[tuple[str, float, tuple[int, int, int]]]:
         earth = self.simulation.body_named("Earth")
@@ -673,6 +669,14 @@ class GravityStudioApp:
         self.date_buttons = self.date_shortcuts.build_buttons(
             *self.viewport,
             ui_scale,
-            self.simulation.bookmarks(),
+            self.cached_bookmarks,
             self.active_jump_action(),
         )
+
+    def _resolve_active_bookmark(self, bookmarks, current_datetime: datetime):
+        if self.simulation.live_mode:
+            return bookmarks[0] if bookmarks else None
+        for bookmark in bookmarks[1:]:
+            if abs((bookmark.moment - current_datetime).total_seconds()) <= 3600 * 12:
+                return bookmark
+        return None
