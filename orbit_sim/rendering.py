@@ -25,6 +25,7 @@ class SceneRenderer:
         self._halo_cache: dict[tuple[str, int], pygame.Surface] = {}
         self._ring_cache: dict[tuple[int, bool], pygame.Surface] = {}
         self._label_text_cache: dict[tuple[int, str, tuple[int, int, int]], pygame.Surface] = {}
+        self._mission_cache: dict[tuple[object, ...], tuple[pygame.Surface, tuple[tuple[MissionDefinition, tuple[tuple[int, int], ...], tuple[float, ...], float], ...]]] = {}
 
     def draw(
         self,
@@ -202,24 +203,49 @@ class SceneRenderer:
         current_time: datetime,
         selected_body: CelestialBody | None,
     ) -> None:
-        mission_layer = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        for mission in MISSION_DEFINITIONS:
-            if mission.frame == "earth_local" and (selected_body is None or selected_body.name != "Earth"):
-                continue
-
-            path = self._mission_points(camera, mission, selected_body)
-            if len(path) < 2:
-                continue
-
-            alpha = 118 if mission.frame == "heliocentric" else 164
-            pygame.draw.aalines(mission_layer, (*mission.color, alpha), False, path)
-            marker = self._mission_marker(path, mission, current_time)
-            pygame.draw.circle(mission_layer, (*mission.color, 228), marker, 4 if mission.frame == "heliocentric" else 5)
+        mission_layer, mission_geometries = self._mission_layer(surface.get_size(), camera, selected_body)
+        surface.blit(mission_layer, (0, 0))
+        for mission, path, segment_lengths, total_length in mission_geometries:
+            marker = self._mission_marker(path, segment_lengths, total_length, mission, current_time)
+            pygame.draw.circle(surface, mission.color, marker, 4 if mission.frame == "heliocentric" else 5)
             label = self._label_surface(self.label_font, mission.label, (208, 216, 226))
             label_pos = (marker[0] + 10, marker[1] - label.get_height() // 2)
-            mission_layer.blit(label, label_pos)
+            surface.blit(label, label_pos)
 
-        surface.blit(mission_layer, (0, 0))
+    def _mission_layer(
+        self,
+        surface_size: tuple[int, int],
+        camera: SolarCamera,
+        selected_body: CelestialBody | None,
+    ) -> tuple[pygame.Surface, tuple[tuple[MissionDefinition, tuple[tuple[int, int], ...], tuple[float, ...], float], ...]]:
+        cache_key = (
+            surface_size,
+            round(camera.zoom, 3),
+            round(camera.current_compression, 3),
+            round(camera.current_span_factor, 3),
+            round(camera.layout.scene_center.x, 1),
+            round(camera.layout.scene_center.y, 1),
+            selected_body.name if selected_body is not None else None,
+            camera.scene_mode,
+        )
+        if cache_key not in self._mission_cache:
+            mission_layer = pygame.Surface(surface_size, pygame.SRCALPHA)
+            mission_geometries = []
+            for mission in MISSION_DEFINITIONS:
+                if mission.frame == "earth_local" and (selected_body is None or selected_body.name != "Earth"):
+                    continue
+                path = tuple(self._mission_points(camera, mission, selected_body))
+                if len(path) < 2:
+                    continue
+                alpha = 118 if mission.frame == "heliocentric" else 164
+                pygame.draw.aalines(mission_layer, (*mission.color, alpha), False, path)
+                segment_lengths, total_length = self._polyline_lengths(path)
+                mission_geometries.append((mission, path, segment_lengths, total_length))
+            self._mission_cache[cache_key] = (mission_layer, tuple(mission_geometries))
+            if len(self._mission_cache) > 48:
+                self._mission_cache.clear()
+                self._mission_cache[cache_key] = (mission_layer, tuple(mission_geometries))
+        return self._mission_cache[cache_key]
 
     def _mission_points(
         self,
@@ -242,7 +268,9 @@ class SceneRenderer:
 
     def _mission_marker(
         self,
-        path: list[tuple[int, int]],
+        path: tuple[tuple[int, int], ...],
+        segment_lengths: tuple[float, ...],
+        total_length: float,
         mission: MissionDefinition,
         current_time: datetime,
     ) -> tuple[int, int]:
@@ -252,18 +280,26 @@ class SceneRenderer:
 
         elapsed = (current_time - mission.launch).total_seconds()
         progress = max(0.0, min(1.0, elapsed / total))
-        return self._interpolate_polyline(path, progress)
+        return self._interpolate_polyline(path, segment_lengths, total_length, progress)
 
-    def _interpolate_polyline(self, points: list[tuple[int, int]], progress: float) -> tuple[int, int]:
-        if len(points) == 1:
-            return points[0]
-
+    def _polyline_lengths(self, points: tuple[tuple[int, int], ...]) -> tuple[tuple[float, ...], float]:
         segment_lengths = []
         total_length = 0.0
         for start, end in zip(points, points[1:]):
             length = Vector2(end).distance_to(Vector2(start))
             segment_lengths.append(length)
             total_length += length
+        return tuple(segment_lengths), total_length
+
+    def _interpolate_polyline(
+        self,
+        points: tuple[tuple[int, int], ...],
+        segment_lengths: tuple[float, ...],
+        total_length: float,
+        progress: float,
+    ) -> tuple[int, int]:
+        if len(points) == 1:
+            return points[0]
 
         target = total_length * progress
         traversed = 0.0
