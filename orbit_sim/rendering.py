@@ -24,7 +24,7 @@ class SceneRenderer:
         self._space_haze_cache: dict[tuple[tuple[int, int], float], pygame.Surface] = {}
         self._halo_cache: dict[tuple[str, int], pygame.Surface] = {}
         self._ring_cache: dict[tuple[int, bool], pygame.Surface] = {}
-        self._label_text_cache: dict[tuple[int, str, tuple[int, int, int]], pygame.Surface] = {}
+        self._label_text_cache: dict[tuple[int, str, tuple[int, int, int], int], pygame.Surface] = {}
         self._mission_cache: dict[tuple[object, ...], tuple[pygame.Surface, tuple[tuple[MissionDefinition, tuple[tuple[int, int], ...], tuple[float, ...], float], ...]]] = {}
 
     def draw(
@@ -757,8 +757,7 @@ class SceneRenderer:
             anchor = planet_position + direction * (planet_radius + 12 * camera.layout.ui_scale)
             font = self.selected_label_font if body is selected_body else self.label_font
             color = (226, 231, 237) if body is selected_body else (142, 150, 163)
-            label_surface = self._label_surface(font, body.name, color)
-            label_surface.set_alpha(alpha)
+            label_surface = self._label_surface(font, body.name, color, alpha)
             side = "right" if anchor.x >= sun_center.x else "left"
             candidate = {
                 "body": body,
@@ -850,11 +849,15 @@ class SceneRenderer:
         font: pygame.font.Font,
         text: str,
         color: tuple[int, int, int],
+        alpha: int = 255,
     ) -> pygame.Surface:
-        cache_key = (id(font), text, color)
+        cache_key = (id(font), text, color, alpha)
         if cache_key not in self._label_text_cache:
-            self._label_text_cache[cache_key] = font.render(text, True, color)
-        return self._label_text_cache[cache_key].copy()
+            label_surface = font.render(text, True, color)
+            if alpha < 255:
+                label_surface.set_alpha(alpha)
+            self._label_text_cache[cache_key] = label_surface
+        return self._label_text_cache[cache_key]
 
     def _label_alpha(
         self,
