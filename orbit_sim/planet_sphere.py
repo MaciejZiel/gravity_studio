@@ -61,42 +61,103 @@ class SpinningPlanetRenderer:
         earth_night = self.texture_library.auxiliary_texture("earth_night", (texture.get_width(), texture.get_height()))
 
         sphere = pygame.Surface((diameter, diameter), pygame.SRCALPHA)
-        radius = diameter / 2
-        center = radius - 0.5
         texture_width = texture.get_width()
         texture_height = texture.get_height()
+        texture_width_limit = texture_width - 1
         rotation_radians = rotation_degrees * pi / 180.0
         light_direction = self._light_direction(body, simulation_days)
+        light_x, light_y, light_z = light_direction.x, light_direction.y, light_direction.z
         bump_strength = self._bump_strength(body)
         geometry_samples = self._geometry_samples(body, diameter, texture_height)
+        inv_tau = 1.0 / (2 * pi)
+        inv_255 = 1.0 / 255.0
+        body_name = body.name
+        is_earth = body_name == "Earth"
+        is_venus = body_name == "Venus"
+        is_rocky = body_name in {"Mercury", "Mars"}
+        has_terminator_glow = body_name in {"Venus", "Earth", "Mars", "Uranus", "Neptune", "Saturn"}
+        terminator_color = self._terminator_color(body)
+        has_aurora = body_name in {"Earth", "Jupiter", "Saturn"}
+        aurora_color = self._aurora_color(body)
+        cloud_rotation = rotation_radians * 1.08 + simulation_days * 0.05 if is_earth and earth_clouds is not None else 0.0
+        aurora_floor = radians(48.0)
+        aurora_span = radians(26.0)
         texture.lock()
         sphere.lock()
 
         for x, y, normal_x, normal_y, normal_z, base_longitude, latitude, source_y in geometry_samples:
-                longitude = base_longitude + rotation_radians
-                u = ((longitude / (2 * pi)) + 0.5) % 1.0
-                source_x = min(texture_width - 1, int(u * (texture_width - 1)))
-                source_color = texture.get_at((source_x, source_y))
-                bump = self._bump_vector(luminance_rows, texture_width, texture_height, source_x, source_y, bump_strength)
-                shaded_normal = (Vector3(normal_x, normal_y, normal_z) + bump).normalize()
-                diffuse = max(0.0, shaded_normal.dot(light_direction))
-                lit_color = self._shade_color(body, source_color, diffuse)
-                lit_color = self._apply_terminator_glow(body, lit_color, diffuse)
-                if body.name == "Earth" and earth_night is not None:
+            longitude = base_longitude + rotation_radians
+            source_x = min(texture_width_limit, int((((longitude * inv_tau) + 0.5) % 1.0) * texture_width_limit))
+            source_color = texture.get_at((source_x, source_y))
+
+            if bump_strength > 0.0 and luminance_rows is not None:
+                row = luminance_rows[source_y]
+                left = row[max(0, source_x - 1)] * inv_255
+                right = row[min(texture_width_limit, source_x + 1)] * inv_255
+                up = luminance_rows[max(0, source_y - 1)][source_x] * inv_255
+                down = luminance_rows[min(texture_height - 1, source_y + 1)][source_x] * inv_255
+                shaded_x = normal_x + (left - right) * bump_strength
+                shaded_y = normal_y + (down - up) * bump_strength
+                shaded_z = normal_z
+                inverse_length = 1.0 / sqrt(shaded_x * shaded_x + shaded_y * shaded_y + shaded_z * shaded_z)
+                diffuse = max(0.0, (shaded_x * light_x + shaded_y * light_y + shaded_z * light_z) * inverse_length)
+            else:
+                diffuse = max(0.0, normal_x * light_x + normal_y * light_y + normal_z * light_z)
+
+            intensity = min(1.12, 0.22 + diffuse * 0.9)
+            if is_earth:
+                ocean_bias = max(0.0, min(1.0, (source_color.b - source_color.r * 0.7) / 140.0))
+                specular_strength = 0.18 + ocean_bias * 1.1
+            elif is_venus:
+                specular_strength = 0.12
+            elif is_rocky:
+                specular_strength = 0.08
+            else:
+                specular_strength = 0.04
+            specular = max(0.0, diffuse - 0.9) * specular_strength
+
+            color_r = min(255, int(source_color.r * intensity + 255 * specular))
+            color_g = min(255, int(source_color.g * intensity + 248 * specular))
+            color_b = min(255, int(source_color.b * intensity + 236 * specular))
+
+            if has_terminator_glow:
+                glow_amount = max(0.0, 0.22 - abs(diffuse - 0.12)) / 0.22
+                if glow_amount > 0.0:
+                    blend_amount = min(0.24, glow_amount * 0.22)
+                    color_r = int(color_r * (1.0 - blend_amount) + terminator_color[0] * blend_amount)
+                    color_g = int(color_g * (1.0 - blend_amount) + terminator_color[1] * blend_amount)
+                    color_b = int(color_b * (1.0 - blend_amount) + terminator_color[2] * blend_amount)
+
+            if is_earth and earth_night is not None:
+                night_mix = max(0.0, (0.34 - diffuse) / 0.34)
+                if night_mix > 0.0:
                     night_color = earth_night.get_at((source_x, source_y))
-                    night_mix = max(0.0, (0.34 - diffuse) / 0.34)
-                    lit_color = self._add_light_emission(lit_color, night_color, night_mix * 0.8)
-                if body.name == "Earth" and earth_clouds is not None:
-                    cloud_rotation = rotation_radians * 1.08 + simulation_days * 0.05
-                    cloud_u = ((base_longitude + cloud_rotation) / (2 * pi) + 0.5) % 1.0
-                    cloud_x = min(texture_width - 1, int(cloud_u * (texture_width - 1)))
-                    cloud_color = earth_clouds.get_at((cloud_x, source_y))
-                    cloud_mix = max(0.0, (self._luminance(cloud_color) - 0.46) * 1.8)
-                    lit_color = self._blend(lit_color, (248, 250, 252), min(0.32, cloud_mix))
-                aurora_mix = self._aurora_mix(body, latitude, diffuse)
-                if aurora_mix > 0.0:
-                    lit_color = self._blend(lit_color, self._aurora_color(body), aurora_mix)
-                sphere.set_at((x, y), lit_color)
+                    emission_amount = night_mix * 0.8
+                    color_r = min(255, int(color_r + night_color.r * emission_amount))
+                    color_g = min(255, int(color_g + night_color.g * emission_amount))
+                    color_b = min(255, int(color_b + night_color.b * emission_amount))
+
+            if is_earth and earth_clouds is not None:
+                cloud_x = min(texture_width_limit, int((((base_longitude + cloud_rotation) * inv_tau + 0.5) % 1.0) * texture_width_limit))
+                cloud_color = earth_clouds.get_at((cloud_x, source_y))
+                cloud_mix = max(0.0, (self._luminance(cloud_color) - 0.46) * 1.8)
+                if cloud_mix > 0.0:
+                    blend_amount = min(0.32, cloud_mix)
+                    color_r = int(color_r * (1.0 - blend_amount) + 248 * blend_amount)
+                    color_g = int(color_g * (1.0 - blend_amount) + 250 * blend_amount)
+                    color_b = int(color_b * (1.0 - blend_amount) + 252 * blend_amount)
+
+            if has_aurora:
+                polar_distance = max(0.0, (abs(latitude) - aurora_floor) / aurora_span)
+                if polar_distance > 0.0:
+                    twilight = max(0.0, min(1.0, (0.38 - diffuse) / 0.38))
+                    aurora_mix = min(0.24, polar_distance * twilight * (0.28 if is_earth else 0.18))
+                    if aurora_mix > 0.0:
+                        color_r = int(color_r * (1.0 - aurora_mix) + aurora_color[0] * aurora_mix)
+                        color_g = int(color_g * (1.0 - aurora_mix) + aurora_color[1] * aurora_mix)
+                        color_b = int(color_b * (1.0 - aurora_mix) + aurora_color[2] * aurora_mix)
+
+            sphere.set_at((x, y), (color_r, color_g, color_b, 255))
 
         sphere.unlock()
         texture.unlock()
