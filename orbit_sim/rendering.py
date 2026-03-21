@@ -25,6 +25,8 @@ class SceneRenderer:
         self._halo_cache: dict[tuple[str, int], pygame.Surface] = {}
         self._ring_cache: dict[tuple[int, bool], pygame.Surface] = {}
         self._label_text_cache: dict[tuple[int, str, tuple[int, int, int], int], pygame.Surface] = {}
+        self._label_layer_cache_key: tuple[object, ...] | None = None
+        self._label_layer_cache: pygame.Surface | None = None
         self._mission_cache: dict[tuple[object, ...], tuple[pygame.Surface, tuple[tuple[MissionDefinition, tuple[tuple[int, int], ...], tuple[float, ...], float], ...]]] = {}
         self._focus_vignette_cache: dict[tuple[tuple[int, int], tuple[int, int], int], pygame.Surface] = {}
         self._focus_shadow_cache: dict[int, pygame.Surface] = {}
@@ -766,10 +768,10 @@ class SceneRenderer:
         bodies: list[CelestialBody],
         selected_body: CelestialBody | None,
     ) -> None:
-        label_layer = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
         sun_center = camera.layout.scene_center
         left_candidates: list[dict[str, object]] = []
         right_candidates: list[dict[str, object]] = []
+        cache_rows = []
 
         for body in bodies:
             alpha = self._label_alpha(body, camera, selected_body)
@@ -783,6 +785,7 @@ class SceneRenderer:
             font = self.selected_label_font if body is selected_body else self.label_font
             color = (226, 231, 237) if body is selected_body else (142, 150, 163)
             label_surface = self._label_surface(font, body.name, color, alpha)
+            cache_rows.append((body.name, int(planet_position.x), int(planet_position.y), int(planet_radius), alpha))
             side = "right" if anchor.x >= sun_center.x else "left"
             candidate = {
                 "body": body,
@@ -797,6 +800,20 @@ class SceneRenderer:
                 right_candidates.append(candidate)
             else:
                 left_candidates.append(candidate)
+
+        cache_key = (
+            surface.get_size(),
+            round(camera.layout.ui_scale, 3),
+            round(camera.zoom, 3),
+            camera.scene_mode,
+            selected_body.name if selected_body is not None else None,
+            tuple(cache_rows),
+        )
+        if cache_key == self._label_layer_cache_key and self._label_layer_cache is not None:
+            surface.blit(self._label_layer_cache, (0, 0))
+            return
+
+        label_layer = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 
         for side_candidates in (left_candidates, right_candidates):
             self._resolve_label_stack(side_candidates, surface.get_height(), camera.layout.ui_scale)
@@ -823,6 +840,8 @@ class SceneRenderer:
             pygame.draw.line(label_layer, (94, 104, 120, alpha), self._point(planet_position), line_end, 1)
             label_layer.blit(label_surface, label_position)
 
+        self._label_layer_cache_key = cache_key
+        self._label_layer_cache = label_layer
         surface.blit(label_layer, (0, 0))
 
     def _resolve_label_stack(
@@ -866,6 +885,8 @@ class SceneRenderer:
 
         self.label_scale = ui_scale
         self._label_text_cache.clear()
+        self._label_layer_cache_key = None
+        self._label_layer_cache = None
         self.label_font = pygame.font.SysFont("segoeui", max(11, int(12 * ui_scale)))
         self.selected_label_font = pygame.font.SysFont("segoeui", max(12, int(13 * ui_scale)), bold=True)
 
