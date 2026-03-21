@@ -1,30 +1,52 @@
-# Gravity Studio: Solar System
+<p align="center">
+  <img src="screenshots/gravity-studio-20260321-000517-clean.png" alt="Gravity Studio Solar System screenshot" width="100%" />
+</p>
 
-A fullscreen, astronomy-inspired Solar System visualization built with Python and Pygame.
+<h1 align="center">Gravity Studio: Solar System</h1>
 
-## Features
+<p align="center">
+  A fullscreen, astronomy-inspired Solar System visualization built with <code>Python</code> and <code>Pygame</code>.
+</p>
 
-- Fullscreen launch with responsive scaling for large displays
-- Real Solar System dataset with the Sun and all 8 planets in correct order
-- Elliptical orbit projection with inclination cues, live ephemeris syncing, and alternate distance scaling
+<p align="center">
+  Real planets. Cinematic focus views. Responsive fullscreen rendering. Portfolio-grade presentation.
+</p>
+
+## Overview
+
+Gravity Studio is a premium-style desktop visualization of our Solar System designed for large displays.  
+It blends a compressed but credible scale model with responsive camera choreography, real planet metadata, cinematic tours, a live time mode, and a textured focus renderer for close-up planet inspection.
+
+This is not a toy orbit demo. The project is built to feel closer to a compact astronomy product: restrained UI, calmer motion, modern fullscreen composition, and a codebase organized for further expansion.
+
+## Highlights
+
+- Fullscreen-by-default desktop app with responsive layout and scaling
+- Real Solar System dataset with the Sun plus all 8 planets in the correct order
 - Scene presets for `System`, `Inner`, `Giants`, `Outer`, and planet `Focus` views
-- Textured planet focus close-up with a spinning shaded sphere built from full-surface planet maps
-- Close-up shading upgrades with axial tilt, seasonal lighting, Earth clouds, night lights, aurora cues, atmospheric terminator haze, and denser Saturn rings
-- Major moons for Earth, Jupiter, and Saturn rendered as contextual satellites in scene and focus views
-- Mission trajectory layer for `Parker`, `JWST`, `Voyager 1`, `Cassini`, and `Apollo 11`
-- Timeline scrubber with simulation date, quick date jumps, and `1x / 10x / 100x / 1000x` time controls
-- Astronomy event chips with `Now`, `Next Alignment`, `Equinox`, `Solstice`, `Eclipse Season`, `Apollo 11`, `Voyager 1`, and `JWST`
-- Earth-sky context strip showing approximate ecliptic longitudes of the planets from Earth's point of view
-- Guided cinematic tours plus a looping presentation mode for passive fullscreen playback
-- Scale story mode that relaxes the compressed visualization toward a harsher sense of true distance
-- Live local clock overlay plus per-focus timestamp readout with hour, minute, and second precision
-- One-click `Live` mode that syncs planet positions to the current time and runs in real time
-- Layered starfield parallax, branded fullscreen splash, runtime app icon, and adaptive ambient soundscape
-- Adaptive planet labels that avoid overlap in denser views
-- Contextual focus overlays, clean screenshot capture, and locally persisted viewer settings
-- Modular separation between data, simulation, camera, rendering, background, audio, and UI
+- Live `1:1` time mode, guided tours, presentation mode, date jumps, and time-speed controls
+- Textured planet close-ups with rotating shaded spheres, seasonal lighting, Earth clouds, night lights, aurora cues, and Saturn rings
+- Mission overlays, major moons, adaptive labels, sky-context strip, screenshots, local settings persistence, and ambient audio
 
-## Run locally
+## What It Includes
+
+- Responsive fullscreen composition for large monitors and high-resolution displays
+- Elliptical orbit projection with inclination cues and alternate distance scaling modes
+- Clean overlay UI with HUD, focus badge, timeline, event chips, tour captions, and scene controls
+- Major moons for Earth, Jupiter, and Saturn
+- Mission trajectories for `Parker`, `JWST`, `Voyager 1`, `Cassini`, and `Apollo 11`
+- Earth-sky context strip showing approximate ecliptic longitudes from Earth's point of view
+- Scale story mode that relaxes the compressed model toward a harsher sense of real distance
+- Runtime app icon, branded splash screen, and screenshot capture workflow
+
+## Quick Start
+
+### Requirements
+
+- Python `3.10+`
+- A desktop environment that can run `Pygame`
+
+### Install and run
 
 ```bash
 python3 -m venv .venv
@@ -39,13 +61,21 @@ You can also run it as a module:
 python -m orbit_sim
 ```
 
-Optional desktop build:
+### Optional desktop build
 
 ```bash
 source .venv/bin/activate
 pip install pyinstaller
 python scripts/build_desktop.py
 ```
+
+## Core Experience
+
+- Watch the Solar System in a curated compressed scale that stays readable in fullscreen
+- Jump between curated scene presets depending on whether you want global context or a tighter view
+- Click a planet to open a focus experience with a rotating textured sphere and contextual data
+- Switch to `Live` mode to view the current planetary arrangement in real time
+- Launch guided tours or presentation mode for a passive, polished showcase loop
 
 ## Controls
 
