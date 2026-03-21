@@ -79,45 +79,64 @@ python scripts/build_desktop.py
 
 ## Controls
 
-- `Left click`: select a planet
-- `Left click` on a planet: jump into focus and show the rotating close-up preview
-- `Left drag` on the focus sphere: rotate the selected planet manually
-- `Mouse wheel`: zoom in or out
-- `Q / W / E / G`: switch between `System`, `Inner`, `Outer`, and `Giants` scenes
-- `F`: jump to focus view for the selected planet
-- `T / Y`: start the `Grand Tour` or `Historic Dates` guided tour
-- `D`: toggle looping presentation mode
-- `1 / 2 / 3 / 4`: switch time speed presets
-- `Timeline scrubber`: drag to set the simulation date
-- `Quick date chips`: jump to current and curated astronomy events, including the next computed alignment
-- `Live`: sync the Solar System to the current moment and run at `1:1` real time
-- `Sound`: toggle the ambient soundscape
-- `Pause` / `Resume`: stop or continue orbital motion
-- `Orbits`: show or hide orbit lines
-- `Labels`: show or hide planet labels
-- `M`: show or hide mission trajectories
-- `K`: show or hide the Earth-sky context strip
-- `S`: toggle the scale story blend
-- `Scale`: switch between compressed and expanded distance scaling
-- `H`: hide or reveal the UI
-- `P`: capture a screenshot into `screenshots/`
-- `Clean Shot`: capture a HUD-free screenshot of the current frame
-- `Reset`: restore the original system state
+| Action | Input |
+| --- | --- |
+| Select a planet | `Left click` |
+| Rotate the focus sphere | `Left drag` on the focused planet |
+| Zoom | `Mouse wheel` |
+| System scenes | `Q / W / E / G` |
+| Focus selected planet | `F` |
+| Start guided tours | `T / Y` |
+| Toggle presentation mode | `D` |
+| Time speed presets | `1 / 2 / 3 / 4` |
+| Scrub simulation date | `Timeline slider` |
+| Jump to curated dates | `Quick date chips` |
+| Toggle `Live` real-time mode | `Live` |
+| Toggle sound | `Sound` |
+| Pause or resume | `Pause / Resume` |
+| Toggle orbit lines | `Orbits` or `O` |
+| Toggle labels | `Labels` or `L` |
+| Toggle mission trajectories | `M` |
+| Toggle sky context strip | `K` |
+| Toggle scale story | `S` |
+| Toggle distance scaling mode | `Scale` |
+| Hide or reveal the UI | `H` |
+| Capture a screenshot | `P` |
+| Capture a HUD-free shot | `Clean Shot` |
+| Reset the viewer state | `Reset` |
 
-## Project layout
+## Repository Layout
 
-- `main.py`: simple desktop entry point
-- `orbit_sim/app.py`: app orchestration and input flow
-- `orbit_sim/solar_system.py`: Solar System dataset and planet metadata
-- `orbit_sim/satellites.py`: major moon dataset
-- `orbit_sim/missions.py`: mission trajectory presets
-- `orbit_sim/tours.py`: cinematic tour definitions
-- `orbit_sim/simulation.py`: orbital motion state
-- `orbit_sim/camera.py`: responsive scene layout, zoom, and distance scaling
-- `orbit_sim/rendering.py`: scene rendering
-- `orbit_sim/planet_sphere.py`: focus close-up sphere rendering
-- `orbit_sim/ui.py`: info panel, HUD, and controls
-- `orbit_sim/background.py`: procedural star field
-- `orbit_sim/audio.py`: adaptive ambient soundscape
-- `orbit_sim/branding.py`: splash screen and runtime icon
-- `orbit_sim/settings.py`: local settings persistence
+| Path | Purpose |
+| --- | --- |
+| `main.py` | Desktop entry point |
+| `orbit_sim/app.py` | App orchestration, state flow, and input handling |
+| `orbit_sim/solar_system.py` | Solar System dataset and planet metadata |
+| `orbit_sim/satellites.py` | Major moon dataset |
+| `orbit_sim/missions.py` | Mission trajectory presets |
+| `orbit_sim/tours.py` | Guided tour definitions |
+| `orbit_sim/simulation.py` | Orbital state and time progression |
+| `orbit_sim/camera.py` | Responsive layout, zoom, scene presets, and distance scaling |
+| `orbit_sim/rendering.py` | Main scene renderer and focus-view composition |
+| `orbit_sim/planet_sphere.py` | Textured close-up sphere renderer |
+| `orbit_sim/ui.py` | HUD, info panels, strips, and overlay controls |
+| `orbit_sim/background.py` | Procedural star field and space backdrop |
+| `orbit_sim/audio.py` | Adaptive ambient soundscape |
+| `orbit_sim/branding.py` | Splash screen and runtime branding |
+| `orbit_sim/settings.py` | Local settings persistence |
+| `assets/planets/` | Planet maps, ring masks, and auxiliary texture assets |
+| `screenshots/` | Runtime screenshots captured from the app |
+
+## Technical Notes
+
+- The visualization uses a deliberately compressed scale model so the full Solar System remains readable in fullscreen
+- Planet close-ups use textured rotating spheres rather than flat 2D portraits
+- The app includes a substantial performance pass around starfield caching, label caching, focus overlays, mission geometry, and sphere rendering hot paths
+- Settings such as UI visibility, scale mode, and overlay toggles persist locally between runs
+
+## Project Priorities
+
+- Keep the visualization readable in fullscreen without collapsing into a literal but unusable scale model
+- Make the app feel calm, modern, and astronomy-inspired rather than playful or demo-like
+- Preserve a modular structure so rendering, simulation, camera, UI, and assets can evolve independently
+- Ship something that works well both as a portfolio piece and as a clean base for future expansion
