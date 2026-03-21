@@ -64,6 +64,26 @@ class SceneRenderer:
         if selected_body is not None and self._should_draw_focus_closeup(camera):
             self.draw_focus_closeup(surface, camera, selected_body, moons, simulation_days, focus_rotation_degrees)
 
+    def prime_focus_assets(
+        self,
+        camera: SolarCamera,
+        body: CelestialBody,
+        simulation_days: float,
+        focus_rotation_degrees: float = 0.0,
+    ) -> None:
+        hero_rect = self.focus_closeup_rect(camera.viewport, camera)
+        if hero_rect is None:
+            viewport_min = min(camera.viewport)
+            diameter = int(max(180, min(viewport_min * 0.28, viewport_min * 0.2)))
+        else:
+            diameter = hero_rect.width
+        self.focus_renderer.render(
+            body,
+            diameter,
+            simulation_days,
+            display_rotation_degrees=focus_rotation_degrees,
+        )
+
     def draw_space_haze(self, surface: pygame.Surface, zoom: float) -> None:
         cache_key = (surface.get_size(), round(zoom, 2))
         if cache_key not in self._space_haze_cache:

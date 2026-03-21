@@ -162,6 +162,18 @@ class GravityStudioApp:
         self.hovered_body = self.body_at_screen_position(Vector2(mouse_position))
         if self.selected_body is not None:
             self.focus_auto_rotation = (self.focus_auto_rotation + dt * self._focus_spin_rate(self.selected_body)) % 360.0
+            self.scene_renderer.prime_focus_assets(
+                self.camera,
+                self.selected_body,
+                self.simulation.simulation_days,
+                self.focus_auto_rotation + self.focus_rotation_offset,
+            )
+        elif self.hovered_body is not None and self.hovered_action is None:
+            self.scene_renderer.prime_focus_assets(
+                self.camera,
+                self.hovered_body,
+                self.simulation.simulation_days,
+            )
         if self.selected_body is not None:
             self.panel_body = self.selected_body
 
