@@ -28,10 +28,11 @@ class SpinningPlanetRenderer:
         safe_diameter = max(140, int(diameter))
         internal_diameter = max(148, min(288, int(safe_diameter * 0.68)))
         rotation_degrees = self._rotation_degrees(body, simulation_days) if display_rotation_degrees is None else display_rotation_degrees
-        rotation_index = int((rotation_degrees % 360.0) / 3.0)
+        rotation_step = 4.0 if safe_diameter >= 220 else 3.0
+        rotation_index = int((rotation_degrees % 360.0) / rotation_step)
         cache_key = (body.name, internal_diameter, rotation_index)
         if cache_key not in self._frame_cache:
-            self._frame_cache[cache_key] = self._build_frame(body, internal_diameter, rotation_index * 3.0, simulation_days)
+            self._frame_cache[cache_key] = self._build_frame(body, internal_diameter, rotation_index * rotation_step, simulation_days)
 
         frame = self._frame_cache[cache_key]
         if frame.get_width() == safe_diameter:
