@@ -55,7 +55,7 @@ class SceneRenderer:
         self.draw_star(surface, camera, elapsed_time)
         self.draw_planets(surface, camera, bodies, elapsed_time, hovered_body, selected_body)
         self.draw_moons(surface, camera, bodies, moons, selected_body)
-        if show_labels:
+        if show_labels and camera.scene_mode != "focus":
             self.draw_labels(surface, camera, bodies, selected_body)
         if camera.scene_mode == "focus" and selected_body is not None:
             self.draw_focus_vignette(surface, camera, selected_body)
@@ -235,6 +235,8 @@ class SceneRenderer:
             mission_layer = pygame.Surface(surface_size, pygame.SRCALPHA)
             mission_geometries = []
             for mission in MISSION_DEFINITIONS:
+                if camera.scene_mode == "focus" and mission.frame == "heliocentric":
+                    continue
                 if mission.frame == "earth_local" and (selected_body is None or selected_body.name != "Earth"):
                     continue
                 path = tuple(self._mission_points(camera, mission, selected_body))
