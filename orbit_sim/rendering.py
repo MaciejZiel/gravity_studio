@@ -26,6 +26,9 @@ class SceneRenderer:
         self._ring_cache: dict[tuple[int, bool], pygame.Surface] = {}
         self._label_text_cache: dict[tuple[int, str, tuple[int, int, int], int], pygame.Surface] = {}
         self._mission_cache: dict[tuple[object, ...], tuple[pygame.Surface, tuple[tuple[MissionDefinition, tuple[tuple[int, int], ...], tuple[float, ...], float], ...]]] = {}
+        self._focus_vignette_cache: dict[tuple[tuple[int, int], tuple[int, int], int], pygame.Surface] = {}
+        self._focus_shadow_cache: dict[int, pygame.Surface] = {}
+        self._focus_glow_cache: dict[tuple[str, int], pygame.Surface] = {}
 
     def draw(
         self,
@@ -576,17 +579,12 @@ class SceneRenderer:
         camera: SolarCamera,
         selected_body: CelestialBody,
     ) -> None:
-        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 78))
         center = camera.body_position(selected_body)
-        for radius_factor, alpha in ((10.5, 0), (8.0, 22), (5.8, 46)):
-            pygame.draw.circle(
-                overlay,
-                (0, 0, 0, alpha),
-                self._point(center),
-                int(camera.planet_radius(selected_body) * radius_factor),
-            )
-
+        overlay = self._focus_vignette_surface(
+            surface.get_size(),
+            self._point(center),
+            int(camera.planet_radius(selected_body)),
+        )
         surface.blit(overlay, (0, 0))
 
     def draw_focus_closeup(
@@ -604,15 +602,8 @@ class SceneRenderer:
 
         diameter = hero_rect.width
 
-        shadow = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)
-        shadow_rect = shadow.get_rect(center=hero_rect.center)
-        pygame.draw.circle(
-            shadow,
-            (0, 0, 0, 98),
-            (shadow.get_width() // 2, shadow.get_height() // 2 + int(diameter * 0.09)),
-            int(diameter * 0.48),
-        )
-        surface.blit(shadow, shadow_rect.topleft, special_flags=pygame.BLEND_ALPHA_SDL2)
+        shadow = self._focus_shadow_surface(diameter)
+        surface.blit(shadow, shadow.get_rect(center=hero_rect.center).topleft, special_flags=pygame.BLEND_ALPHA_SDL2)
 
         sphere_surface = self.focus_renderer.render(
             selected_body,
@@ -621,22 +612,7 @@ class SceneRenderer:
             display_rotation_degrees=focus_rotation_degrees,
         )
         if sphere_surface is not None:
-            glow = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)
-            glow_center = Vector2(glow.get_width() / 2, glow.get_height() / 2)
-            for radius_factor, alpha in ((0.66, 10), (0.58, 14), (0.48, 18)):
-                pygame.draw.circle(
-                    glow,
-                    (*selected_body.color, alpha),
-                    self._point(glow_center),
-                    int(diameter * radius_factor),
-                )
-            flare_center = glow_center + Vector2(-diameter * 0.12, -diameter * 0.08)
-            pygame.draw.circle(
-                glow,
-                (*selected_body.accent_color, 20 if selected_body.name in {"Earth", "Venus", "Neptune"} else 12),
-                self._point(flare_center),
-                int(diameter * 0.38),
-            )
+            glow = self._focus_glow_surface(selected_body, diameter)
             surface.blit(glow, glow.get_rect(center=hero_rect.center).topleft, special_flags=pygame.BLEND_ALPHA_SDL2)
             if selected_body.has_rings:
                 self._draw_saturn_rings(surface, hero_rect.center, diameter // 2, front=False)
@@ -662,13 +638,14 @@ class SceneRenderer:
         if not focus_moons:
             return
 
-        layer = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        hero_center = Vector2(hero_rect.center)
+        layer_rect = hero_rect.inflate(int(hero_rect.width * 3.0), int(hero_rect.height * 2.4))
+        layer = pygame.Surface(layer_rect.size, pygame.SRCALPHA)
+        hero_center = Vector2(hero_rect.centerx - layer_rect.left, hero_rect.centery - layer_rect.top)
         base_radius = hero_rect.width * 0.68
         for index, moon in enumerate(focus_moons):
             orbit_radius = int(base_radius + index * hero_rect.width * 0.12)
             orbit_rect = pygame.Rect(0, 0, orbit_radius * 2, int(orbit_radius * 0.54))
-            orbit_rect.center = hero_rect.center
+            orbit_rect.center = self._point(hero_center)
             pygame.draw.ellipse(layer, (94, 106, 126, 58), orbit_rect, 1)
             moon_offset = moon.orbital_offset()
             moon_position = hero_center + Vector2(moon_offset.x * orbit_radius, moon_offset.y * orbit_rect.height * 0.5)
@@ -678,7 +655,7 @@ class SceneRenderer:
             tag = self._label_surface(self.label_font, moon.name, (214, 220, 230))
             layer.blit(tag, (int(moon_position.x + moon_radius + 8), int(moon_position.y - tag.get_height() / 2)))
 
-        surface.blit(layer, (0, 0))
+        surface.blit(layer, layer_rect.topleft)
 
     def focus_closeup_rect(self, surface_size: tuple[int, int], camera: SolarCamera) -> pygame.Rect | None:
         if not self._should_draw_focus_closeup(camera):
@@ -692,6 +669,52 @@ class SceneRenderer:
         hero_rect = pygame.Rect(0, 0, diameter, diameter)
         hero_rect.center = self._point(hero_center)
         return hero_rect
+
+    def _focus_vignette_surface(
+        self,
+        surface_size: tuple[int, int],
+        center: tuple[int, int],
+        planet_radius: int,
+    ) -> pygame.Surface:
+        cache_key = (surface_size, center, planet_radius)
+        if cache_key not in self._focus_vignette_cache:
+            overlay = pygame.Surface(surface_size, pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 78))
+            for radius_factor, alpha in ((10.5, 0), (8.0, 22), (5.8, 46)):
+                pygame.draw.circle(overlay, (0, 0, 0, alpha), center, int(planet_radius * radius_factor))
+            self._focus_vignette_cache[cache_key] = overlay
+            if len(self._focus_vignette_cache) > 24:
+                self._focus_vignette_cache.clear()
+                self._focus_vignette_cache[cache_key] = overlay
+        return self._focus_vignette_cache[cache_key]
+
+    def _focus_shadow_surface(self, diameter: int) -> pygame.Surface:
+        if diameter not in self._focus_shadow_cache:
+            shadow = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)
+            pygame.draw.circle(
+                shadow,
+                (0, 0, 0, 98),
+                (shadow.get_width() // 2, shadow.get_height() // 2 + int(diameter * 0.09)),
+                int(diameter * 0.48),
+            )
+            self._focus_shadow_cache[diameter] = shadow
+        return self._focus_shadow_cache[diameter]
+
+    def _focus_glow_surface(self, body: CelestialBody, diameter: int) -> pygame.Surface:
+        cache_key = (body.name, diameter)
+        if cache_key not in self._focus_glow_cache:
+            glow = pygame.Surface((diameter * 2, diameter * 2), pygame.SRCALPHA)
+            glow_center = Vector2(glow.get_width() / 2, glow.get_height() / 2)
+            for radius_factor, alpha in ((0.66, 10), (0.58, 14), (0.48, 18)):
+                pygame.draw.circle(glow, (*body.color, alpha), self._point(glow_center), int(diameter * radius_factor))
+            flare_center = glow_center + Vector2(-diameter * 0.12, -diameter * 0.08)
+            flare_alpha = 20 if body.name in {"Earth", "Venus", "Neptune"} else 12
+            pygame.draw.circle(glow, (*body.accent_color, flare_alpha), self._point(flare_center), int(diameter * 0.38))
+            self._focus_glow_cache[cache_key] = glow
+            if len(self._focus_glow_cache) > 24:
+                self._focus_glow_cache.clear()
+                self._focus_glow_cache[cache_key] = glow
+        return self._focus_glow_cache[cache_key]
 
     def _draw_solar_corona(
         self,
