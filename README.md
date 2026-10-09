@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="screenshots/gravity-studio-20260321-000517-clean.png" alt="Gravity Studio Solar System screenshot" width="100%" />
+  <img src="docs/gravity-studio.png" alt="Gravity Studio Solar System screenshot" width="100%" />
 </p>
 
 <h1 align="center">Gravity Studio: Solar System</h1>
