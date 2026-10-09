@@ -140,3 +140,9 @@ python scripts/build_desktop.py
 - Make the app feel calm, modern, and astronomy-inspired rather than playful or demo-like
 - Preserve a modular structure so rendering, simulation, camera, UI, and assets can evolve independently
 - Ship something that works well both as a portfolio piece and as a clean base for future expansion
+
+## License
+
+The source code is released under the MIT License, see [LICENSE](LICENSE).
+
+Planet textures in `assets/planets/` come from [Solar System Scope](https://www.solarsystemscope.com/textures/) via Wikimedia Commons and are licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); they are not covered by the MIT License.
