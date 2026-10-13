@@ -109,7 +109,18 @@ function start(): void {
     const dot = document.createElement("span");
     dot.className = "dot";
     dot.style.background = color;
-    b.append(dot, document.createTextNode(label));
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = label;
+    b.append(dot, name);
+    const planetIndex = PLANETS.findIndex((p) => p.name === id);
+    const hint = id === "Sun" ? "S" : planetIndex >= 0 && planetIndex < 8 ? String(planetIndex + 1) : "";
+    if (hint) {
+      const k = document.createElement("kbd");
+      k.textContent = hint;
+      k.setAttribute("aria-hidden", "true");
+      b.append(k);
+    }
     b.addEventListener("click", () => focusBody(id));
     return b;
   };
@@ -212,6 +223,27 @@ function start(): void {
   slider.addEventListener("change", () => {
     scrubbing = false;
   });
+  // Decade ticks and the NOW mark under the scrubber.
+  {
+    const ticks = $("ticks");
+    const span = TIMELINE_END_MS - TIMELINE_START_MS;
+    const firstYear = new Date(TIMELINE_START_MS).getUTCFullYear();
+    const lastYear = new Date(TIMELINE_END_MS).getUTCFullYear();
+    for (let y = Math.ceil(firstYear / 10) * 10; y <= lastYear; y += 10) {
+      const t = document.createElement("span");
+      t.style.left = `${((Date.UTC(y, 0, 1) - TIMELINE_START_MS) / span) * 100}%`;
+      if (y % 50 === 0) {
+        t.className = "major";
+        t.dataset.year = String(y);
+      }
+      ticks.appendChild(t);
+    }
+    const now = document.createElement("span");
+    now.className = "now";
+    now.dataset.label = "NOW";
+    now.style.left = `${((Date.now() - TIMELINE_START_MS) / span) * 100}%`;
+    ticks.appendChild(now);
+  }
   const dateInput = $<HTMLInputElement>("date");
   dateInput.addEventListener("change", () => {
     const t = Date.parse(`${dateInput.value}T00:00:00Z`);
