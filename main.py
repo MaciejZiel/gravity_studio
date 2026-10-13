@@ -1,5 +1,4 @@
-from orbit_sim.app import GravityStudioApp
+from orbit_sim.__main__ import main
 
 if __name__ == "__main__":
-    GravityStudioApp().run()
-
+    main()

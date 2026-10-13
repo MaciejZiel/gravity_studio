@@ -3,7 +3,8 @@
 from pathlib import Path
 
 
-project_root = Path.cwd()
+# SPECPATH is provided by PyInstaller and points at the directory holding this spec file.
+project_root = Path(SPECPATH)
 assets = [(str(project_root / "assets"), "assets")]
 
 a = Analysis(
