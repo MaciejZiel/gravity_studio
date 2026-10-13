@@ -5,7 +5,6 @@ from math import sin, tau
 import pygame
 from pygame import Vector2
 
-
 _SPLASH_CACHE: dict[tuple[tuple[int, int], float], dict[str, object]] = {}
 
 
