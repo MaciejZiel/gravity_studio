@@ -428,7 +428,6 @@ class SceneRenderer:
 
     def _draw_gas_bands(self, surface: pygame.Surface, rect: pygame.Rect, body: CelestialBody) -> None:
         band_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
-        center_y = rect.height // 2
         band_specs = {
             "Jupiter": ((0.52, 0.18), (0.40, 0.11), (0.63, 0.08)),
             "Saturn": ((0.54, 0.12), (0.42, 0.08), (0.67, 0.05)),
