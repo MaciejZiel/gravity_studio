@@ -24,11 +24,30 @@ def _parse_volume(value: object) -> float:
         return default
     try:
         volume = float(value)
-    except ValueError:
+    except (ValueError, OverflowError):
+        # OverflowError: an integer too large to convert to float.
         return default
     if not math.isfinite(volume):
         return default
     return max(0.0, min(1.0, volume))
+
+
+_TRUE_WORDS = {"true", "1", "yes", "on"}
+_FALSE_WORDS = {"false", "0", "no", "off"}
+
+
+def _parse_bool(value: object, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        word = value.strip().lower()
+        if word in _TRUE_WORDS:
+            return True
+        if word in _FALSE_WORDS:
+            return False
+    return default
 
 
 class StudioSettingsStore:
@@ -46,13 +65,13 @@ class StudioSettingsStore:
             return StudioSettings()
 
         return StudioSettings(
-            show_orbits=bool(data.get("show_orbits", True)),
-            show_labels=bool(data.get("show_labels", True)),
-            show_missions=bool(data.get("show_missions", True)),
-            show_sky=bool(data.get("show_sky", True)),
+            show_orbits=_parse_bool(data.get("show_orbits"), True),
+            show_labels=_parse_bool(data.get("show_labels"), True),
+            show_missions=_parse_bool(data.get("show_missions"), True),
+            show_sky=_parse_bool(data.get("show_sky"), True),
             scale_mode=str(data.get("scale_mode", "compressed")),
             last_scene=str(data.get("last_scene", "full_system")),
-            ui_hidden=bool(data.get("ui_hidden", False)),
+            ui_hidden=_parse_bool(data.get("ui_hidden"), False),
             master_volume=_parse_volume(data.get("master_volume")),
         )
 

@@ -121,8 +121,11 @@ def test_advance_days_always_lands_inside_the_timeline(simulation, days):
     simulation.advance_days(days)
     assert simulation.timeline_start_days <= simulation.simulation_days <= simulation.timeline_end_days
     # Body angles follow the wrapped value, so the Sun-relative picture stays consistent with the date shown.
-    earth = simulation.body_named("Earth")
-    assert earth.angle == pytest.approx(earth.starting_angle + earth.angular_speed * simulation.simulation_days)
+    # A fresh simulation placed directly on the wrapped date must show the same bodies at the same angles.
+    reference = OrbitalSimulation()
+    reference.set_simulation_days(simulation.simulation_days)
+    for body in simulation.bodies:
+        assert body.angle == pytest.approx(reference.body_named(body.name).angle)
 
 
 def test_a_full_timeline_step_returns_to_the_same_date(simulation):

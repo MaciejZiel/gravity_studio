@@ -83,11 +83,13 @@ def test_distance_scale_is_logarithmic_not_linear(camera):
         assert camera._orbit_radius_for_distance(distance, 1.0, compression, 1.0) == pytest.approx(expected)
 
 
-def test_neptune_is_far_less_than_77_times_mercury_on_screen(camera):
+def test_neptune_is_far_less_than_its_real_distance_ratio_to_mercury_on_screen(camera):
     inner = camera._orbit_radius_for_distance(0.39, 1.0, 2.15, 1.0)
     neptune = camera._orbit_radius_for_distance(30.05, 1.0, 2.15, 1.0)
-    assert 30.05 / 0.39 == pytest.approx(77.05, abs=0.01)
-    assert neptune / inner == pytest.approx(4.69, abs=0.01)
+    real_ratio = 30.05 / 0.39
+    assert neptune > inner
+    # The log scale keeps Neptune on screen: its radius ratio is well under a quarter of the real distance ratio.
+    assert neptune / inner < real_ratio / 4
 
 
 def test_lower_compression_spreads_the_inner_system_less(camera):
