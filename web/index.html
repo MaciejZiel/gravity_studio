@@ -7,6 +7,7 @@
     <meta name="description" content="Gravity Studio for the browser: the Solar System driven by real orbital elements, from 1960 to 2165." />
     <title>Gravity Studio</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" href="/fonts/newsreader-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <canvas id="view" tabindex="0" aria-label="Solar System. Drag to rotate, scroll or pinch to zoom."></canvas>
@@ -14,7 +15,6 @@
 
     <header id="topbar">
       <div class="brand">
-        <img src="/favicon.svg" alt="" width="26" height="26" />
         <span>Gravity Studio</span>
       </div>
       <div class="clockbox" aria-live="off">
@@ -122,7 +122,7 @@
         <p>Planet positions use the approximate Keplerian elements of E. M. Standish and J. G. Williams, published by the <a href="https://ssd.jpl.nasa.gov/planets/approx_pos.html" target="_blank" rel="noreferrer noopener">JPL Solar System Dynamics group</a>.</p>
         <p>The Sun and moon surfaces are generated procedurally in your browser. 3D rendering by <a href="https://threejs.org/" target="_blank" rel="noreferrer noopener">three.js</a> (MIT).</p>
         <p class="muted">Moons other than Earth's Moon use circular orbits with arbitrary starting phases. Mission paths are schematic.</p>
-        <button class="primary" value="close">Close</button>
+        <button class="ghost" value="close">Close</button>
       </form>
     </dialog>
 
