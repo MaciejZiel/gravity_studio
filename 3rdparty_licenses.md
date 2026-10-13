@@ -20,3 +20,4 @@ Components used by this repository outside of the project's own code. Runtime de
 | https://github.com/microsoft/playwright | @playwright/test 1.64.0 (web/, dev) | Apache-2.0 | https://github.com/microsoft/playwright/blob/v1.64.0/LICENSE |
 | https://ssd.jpl.nasa.gov/planets/approx_pos.html | JPL approximate Keplerian elements, Standish and Williams (web/src/astro/ephemeris.ts, numeric data only, no code copied) | LicenseRef-JPL-SSD-published-data | https://ssd.jpl.nasa.gov/planets/approx_pos.html |
 | https://www.solarsystemscope.com/textures/ | Solar System Scope planet textures 2k (assets/planets/, web/public/textures/) | CC-BY-4.0 | https://creativecommons.org/licenses/by/4.0/ |
+| https://github.com/IBM/plex | IBM Plex Mono, latin 400 and 500 woff2 (via @fontsource/ibm-plex-mono 5.3.0), web/public/fonts | OFL-1.1 | https://github.com/IBM/plex/blob/master/LICENSE.txt |
