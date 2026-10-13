@@ -8,7 +8,6 @@ from pygame import Vector2, Vector3
 from orbit_sim.config import REFERENCE_HEIGHT
 from orbit_sim.models import CelestialBody
 
-
 MAX_SOLAR_DISTANCE_AU = 30.05
 EARTH_RADIUS_KM = 6371.0
 VIEW_TILT_DEG = 24.0

@@ -6,8 +6,7 @@ from math import atan2, radians, tau
 
 from orbit_sim.models import CelestialBody, MoonBody
 from orbit_sim.satellites import MAJOR_MOONS, MoonDefinition
-from orbit_sim.solar_system import PlanetDefinition, SOLAR_SYSTEM_PLANETS
-
+from orbit_sim.solar_system import SOLAR_SYSTEM_PLANETS, PlanetDefinition
 
 SIMULATION_EPOCH = datetime(2000, 1, 1, 12, 0, 0)
 TIMELINE_START = datetime(1960, 1, 1, 0, 0, 0)

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import shutil
 import sys
 import time
+from pathlib import Path
 from urllib.request import Request, urlopen
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]

@@ -22,7 +22,19 @@ from orbit_sim.rendering import SceneRenderer
 from orbit_sim.settings import StudioSettings, StudioSettingsStore
 from orbit_sim.simulation import OrbitalSimulation
 from orbit_sim.tours import TOUR_DEFINITIONS, TourDefinition, TourStep
-from orbit_sim.ui import ControlBar, DateShortcutStrip, EventHighlight, FocusBadge, HudChrome, InfoPanel, SceneStrip, SkyContextStrip, TimelineStrip, TourCaption, TourStrip
+from orbit_sim.ui import (
+    ControlBar,
+    DateShortcutStrip,
+    EventHighlight,
+    FocusBadge,
+    HudChrome,
+    InfoPanel,
+    SceneStrip,
+    SkyContextStrip,
+    TimelineStrip,
+    TourCaption,
+    TourStrip,
+)
 
 
 class GravityStudioApp:
