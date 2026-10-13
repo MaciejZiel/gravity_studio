@@ -7,7 +7,7 @@ name = "gravity-studio"
 version = "0.1.0"
 description = "Fullscreen Solar System visualization built with Python and Pygame"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 license = { text = "MIT" }
 dependencies = ["pygame>=2.6,<3.0"]
 
