@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gravity-studio"
+version = "0.1.0"
+description = "Fullscreen Solar System visualization built with Python and Pygame"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["pygame>=2.6,<3.0"]
+
+[project.scripts]
+gravity-studio = "orbit_sim.__main__:main"
+
+[tool.setuptools]
+packages = ["orbit_sim"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
