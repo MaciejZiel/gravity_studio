@@ -125,7 +125,7 @@ python scripts/build_desktop.py
 | `orbit_sim/branding.py` | Splash screen and runtime branding |
 | `orbit_sim/settings.py` | Local settings persistence |
 | `assets/planets/` | Planet maps, ring masks, and auxiliary texture assets |
-| `screenshots/` | Runtime screenshots captured from the app |
+| `screenshots/` | Created at runtime in the working directory when you press `P`; listed in `.gitignore`, so it is not part of the repository |
 
 ## Technical Notes
 
