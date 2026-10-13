@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -17,6 +18,19 @@ class StudioSettings:
     master_volume: float = 0.42
 
 
+def _parse_volume(value: object) -> float:
+    default = StudioSettings.master_volume
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return default
+    try:
+        volume = float(value)
+    except ValueError:
+        return default
+    if not math.isfinite(volume):
+        return default
+    return max(0.0, min(1.0, volume))
+
+
 class StudioSettingsStore:
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -24,10 +38,11 @@ class StudioSettingsStore:
 
     def load(self) -> StudioSettings:
         try:
-            data = json.loads(self.path.read_text())
-        except FileNotFoundError:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            # Missing, unreadable, not UTF-8 or not JSON: start from defaults.
             return StudioSettings()
-        except json.JSONDecodeError:
+        if not isinstance(data, dict):
             return StudioSettings()
 
         return StudioSettings(
@@ -38,9 +53,9 @@ class StudioSettingsStore:
             scale_mode=str(data.get("scale_mode", "compressed")),
             last_scene=str(data.get("last_scene", "full_system")),
             ui_hidden=bool(data.get("ui_hidden", False)),
-            master_volume=max(0.0, min(1.0, float(data.get("master_volume", 0.42)))),
+            master_volume=_parse_volume(data.get("master_volume")),
         )
 
     def save(self, settings: StudioSettings) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(asdict(settings), indent=2))
+        self.path.write_text(json.dumps(asdict(settings), indent=2), encoding="utf-8")

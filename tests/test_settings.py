@@ -47,3 +47,42 @@ def test_master_volume_is_clamped_to_the_unit_range(tmp_path, stored, expected):
     store.path.parent.mkdir(parents=True)
     store.path.write_text(json.dumps({"master_volume": stored}))
     assert store.load().master_volume == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("payload", ["[]", "[1, 2, 3]", '"text"', "42", "null", "true"])
+def test_valid_json_that_is_not_an_object_returns_defaults(tmp_path, payload):
+    store = StudioSettingsStore(tmp_path)
+    store.path.parent.mkdir(parents=True)
+    store.path.write_text(payload)
+    assert store.load() == StudioSettings()
+
+
+@pytest.mark.parametrize("stored", ["loud", None, [], {}, "", "NaN"])
+def test_unusable_master_volume_falls_back_to_the_default(tmp_path, stored):
+    store = StudioSettingsStore(tmp_path)
+    store.path.parent.mkdir(parents=True)
+    store.path.write_text(json.dumps({"master_volume": stored, "show_orbits": False}))
+    loaded = store.load()
+    assert loaded.master_volume == StudioSettings().master_volume
+    # The rest of the file is still honoured.
+    assert loaded.show_orbits is False
+
+
+def test_nan_master_volume_falls_back_to_the_default(tmp_path):
+    store = StudioSettingsStore(tmp_path)
+    store.path.parent.mkdir(parents=True)
+    store.path.write_text('{"master_volume": NaN}')
+    assert store.load().master_volume == StudioSettings().master_volume
+
+
+def test_non_utf8_file_returns_defaults(tmp_path):
+    store = StudioSettingsStore(tmp_path)
+    store.path.parent.mkdir(parents=True)
+    store.path.write_bytes(b"\xff\xfe\x00garbage")
+    assert store.load() == StudioSettings()
+
+
+def test_unreadable_settings_path_returns_defaults(tmp_path):
+    store = StudioSettingsStore(tmp_path)
+    store.path.mkdir(parents=True)  # a directory where the file should be
+    assert store.load() == StudioSettings()
