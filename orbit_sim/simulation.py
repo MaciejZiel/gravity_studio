@@ -81,10 +81,10 @@ class OrbitalSimulation:
 
     def advance_days(self, days: float) -> None:
         advanced_days = self.simulation_days + days
-        if advanced_days > self.timeline_end_days:
-            advanced_days = self.timeline_start_days + (advanced_days - self.timeline_end_days)
-        elif advanced_days < self.timeline_start_days:
-            advanced_days = self.timeline_end_days - (self.timeline_start_days - advanced_days)
+        if not self.timeline_start_days <= advanced_days <= self.timeline_end_days:
+            # Wrap around the timeline however many lengths the step covers.
+            offset = (advanced_days - self.timeline_start_days) % self.timeline_range_days
+            advanced_days = self.timeline_start_days + offset
         self.simulation_days = advanced_days
         self._sync_body_angles()
 
