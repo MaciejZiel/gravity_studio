@@ -40,14 +40,44 @@ def test_python_range_matches_the_ci_matrix(pyproject):
     assert re.findall(r'"(3\.\d+)"', versions) == ["3.10", "3.11", "3.12", "3.13"]
 
 
-def test_asset_directory_is_assets_planets_two_levels_above_the_module():
-    # The PyInstaller spec ships ./assets as "assets" and the app resolves it with parents[1] from
-    # orbit_sim/planet_textures.py, which under _MEIPASS lands on _MEIPASS/assets/planets.
+class _Recorder:
+    """Stands in for the PyInstaller spec classes and keeps what the spec passes to them."""
+
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.pure = []
+        self.scripts = []
+        self.binaries = []
+        self.datas = kwargs.get("datas", [])
+
+
+@pytest.fixture(scope="module")
+def spec_namespace() -> dict:
+    namespace = {"SPECPATH": str(ROOT), "Analysis": _Recorder, "PYZ": _Recorder, "EXE": _Recorder}
+    source = (ROOT / "gravity_studio.spec").read_text(encoding="utf-8")
+    exec(compile(source, "gravity_studio.spec", "exec"), namespace)
+    return namespace
+
+
+def test_asset_directory_is_derived_from_the_module_location():
+    import orbit_sim.planet_textures as module
+
+    assert ASSET_DIRECTORY == Path(module.__file__).resolve().parents[1] / "assets" / "planets"
     assert ASSET_DIRECTORY == ROOT / "assets" / "planets"
 
 
-def test_pyinstaller_spec_bundles_the_assets_directory_to_the_same_relative_path():
-    spec = (ROOT / "gravity_studio.spec").read_text(encoding="utf-8")
-    assert re.search(r'\(str\(project_root / "assets"\), "assets"\)', spec)
-    assert 'project_root = Path(SPECPATH)' in spec
-    assert 'name="GravityStudio"' in spec
+def test_pyinstaller_spec_bundles_assets_where_the_module_looks_for_them(spec_namespace):
+    ((source, destination),) = spec_namespace["a"].kwargs["datas"]
+    assert Path(source) == ROOT / "assets"
+    assert Path(source).is_dir()
+    # The module finds its textures at <package parent>/assets/planets; in the bundle that parent is the
+    # extraction root, so the spec must place the directory at "<destination>" directly under it.
+    assert ASSET_DIRECTORY.relative_to(ROOT) == Path(destination) / "planets"
+
+
+def test_pyinstaller_spec_builds_the_windowed_app_from_main(spec_namespace):
+    assert spec_namespace["a"].args == (["main.py"],)
+    assert spec_namespace["exe"].kwargs["name"] == "GravityStudio"
+    assert spec_namespace["exe"].kwargs["console"] is False
+    assert (ROOT / "main.py").is_file()
