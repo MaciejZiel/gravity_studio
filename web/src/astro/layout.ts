@@ -44,15 +44,20 @@ export function moonVisualDistance(moon: MoonData, parentRadiusKm: number): numb
   return visualRadius(parentRadiusKm) * (1.2 + 0.7 * Math.log(ratio));
 }
 
-/** Offset of a moon from its parent in scene coordinates (circular orbit, tilted by its inclination). */
-export function moonOffset(moon: MoonData, parentRadiusKm: number, ms: number): [number, number, number] {
-  const angle = ((moon.phaseDeg + (360 / moon.periodDays) * daysSinceJ2000(ms)) * Math.PI) / 180;
+/** Point on a moon's orbit around its parent, `angle` in radians, in scene coordinates. */
+export function moonOrbitPoint(moon: MoonData, parentRadiusKm: number, angle: number): [number, number, number] {
   const d = moonVisualDistance(moon, parentRadiusKm);
   const inc = (moon.inclinationDeg * Math.PI) / 180;
-  // Orbit in the ecliptic plane, rotated about the x axis by the inclination.
+  // Circular orbit in the ecliptic plane, rotated about the x axis by the inclination.
   const x = d * Math.cos(angle);
   const yPlane = d * Math.sin(angle);
   return ecliptic({ x, y: yPlane * Math.cos(inc), z: yPlane * Math.sin(inc) });
+}
+
+/** Offset of a moon from its parent in scene coordinates at time `ms`. */
+export function moonOffset(moon: MoonData, parentRadiusKm: number, ms: number): [number, number, number] {
+  const angle = ((moon.phaseDeg + (360 / moon.periodDays) * daysSinceJ2000(ms)) * Math.PI) / 180;
+  return moonOrbitPoint(moon, parentRadiusKm, angle);
 }
 
 export function moonsOf(parent: string): MoonData[] {
