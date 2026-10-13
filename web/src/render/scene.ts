@@ -15,6 +15,7 @@ import {
   toScene,
   visualRadius,
 } from "../astro/layout";
+import { J2000_MS, MS_PER_DAY } from "../astro/time";
 import { atmosphereMaterial, earthMaterial } from "./earth";
 import { SURFACES, renderGlow, renderSurface, rng } from "./procedural";
 
@@ -83,6 +84,8 @@ export class SolarScene {
   private goalDistance: number | null = null;
   private goalDir: THREE.Vector3 | null = null;
   private transitioning = false;
+  private reducedMotion = false;
+  private spinFrozen = false;
   private readonly tmp = new THREE.Vector3();
   private readonly tmp2 = new THREE.Vector3();
   frames = 0;
@@ -330,15 +333,17 @@ export class SolarScene {
       const [x, y, z] = planetScenePosition(p.data.name, ms, this.mode);
       p.group.position.set(x, y, z);
       const sunDir: [number, number] = [-x / Math.hypot(x, z), -z / Math.hypot(x, z)];
-      p.mesh.rotation.y = spinAngle(p.data.name, p.data.rotationHours, ms, sunDir);
+      // Frozen spin keeps Earth's sunlit side facing the Sun (12:00 UTC phase) and gives other bodies a fixed angle.
+      const spinMs = this.spinFrozen ? (p.data.name === "Earth" ? Math.floor(ms / MS_PER_DAY) * MS_PER_DAY + MS_PER_DAY / 2 : J2000_MS) : ms;
+      p.mesh.rotation.y = spinAngle(p.data.name, p.data.rotationHours, spinMs, sunDir);
       const clouds = p.group.getObjectByName("clouds");
-      if (clouds) clouds.rotation.y = p.mesh.rotation.y * 1.0 + ((ms / 86_400_000) % 1000) * 0.0008;
+      if (clouds) clouds.rotation.y = p.mesh.rotation.y * 1.0 + (this.spinFrozen ? 0 : ((ms / 86_400_000) % 1000) * 0.0008);
     }
     for (const m of this.moons) {
       const [x, y, z] = moonOffset(m.data, PLANETS.find((p) => p.name === m.data.parent)!.radiusKm, ms);
       m.mesh.position.set(x, y, z);
     }
-    this.sun.rotation.y = (ms / 86_400_000) * 0.1;
+    this.sun.rotation.y = this.spinFrozen ? 0 : (ms / 86_400_000) * 0.1;
     this.updateMissionMarkers();
   }
 
@@ -360,6 +365,19 @@ export class SolarScene {
       }
       m.line.visible = this.showMissions && (m.data.frame === "heliocentric" ? true : this.focusId === "Earth");
     }
+  }
+
+  /** Reduced motion: no camera easing or damping, so camera moves are instant. */
+  setReducedMotion(on: boolean): void {
+    this.reducedMotion = on;
+    this.controls.enableDamping = !on;
+  }
+
+  /** Stop planets and the Sun from spinning with the simulated clock (it would strobe at high speeds). */
+  setSpinFrozen(frozen: boolean): void {
+    if (frozen === this.spinFrozen) return;
+    this.spinFrozen = frozen;
+    this.setTime(this.ms);
   }
 
   setDistanceMode(mode: DistanceMode): void {
@@ -438,10 +456,11 @@ export class SolarScene {
     }
     this.goalDir = dir.clone().normalize();
     this.goalDistance = distance;
-    this.transitioning = !o.instant;
+    const instant = o.instant || this.reducedMotion;
+    this.transitioning = !instant;
     this.controls.minDistance = Math.max(r.radius * 1.35, 0.004);
     this.controls.maxDistance = this.mode === "compressed" ? 160 : 400;
-    if (o.instant) {
+    if (instant) {
       this.controls.target.copy(r.pos);
       this.camera.position.copy(r.pos).addScaledVector(this.goalDir, distance);
       this.goalDir = null;
@@ -542,7 +561,7 @@ export class SolarScene {
     const r = this.resolve(this.focusId);
     if (r) {
       this.focusPos.copy(r.pos);
-      const k = this.transitioning ? 1 - Math.exp(-dt * 5) : 1;
+      const k = this.transitioning && !this.reducedMotion ? 1 - Math.exp(-dt * 5) : 1;
       const delta = r.pos.clone().sub(this.controls.target);
       const move = delta.clone().multiplyScalar(k);
       this.controls.target.add(move);
@@ -551,7 +570,7 @@ export class SolarScene {
         const off = this.camera.position.clone().sub(this.controls.target);
         let d = off.length();
         const dir = off.normalize();
-        const kk = 1 - Math.exp(-dt * 4.5);
+        const kk = this.reducedMotion ? 1 : 1 - Math.exp(-dt * 4.5);
         if (this.goalDir) {
           dir.lerp(this.goalDir, kk).normalize();
           if (dir.distanceTo(this.goalDir) < 0.004) this.goalDir = null;

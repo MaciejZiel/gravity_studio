@@ -12,6 +12,8 @@ export class TourRunner {
   active: Tour | null = null;
   index = 0;
   elapsed = 0;
+  /** When false (reduced motion) the tour waits for Next instead of advancing on a timer. */
+  autoAdvance = true;
 
   constructor(private readonly hooks: TourHooks) {}
 
@@ -49,7 +51,7 @@ export class TourRunner {
 
   update(dt: number): void {
     const s = this.step;
-    if (!s) return;
+    if (!s || !this.autoAdvance) return;
     this.elapsed += dt;
     if (this.elapsed >= s.duration) this.next();
   }
