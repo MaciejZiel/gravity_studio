@@ -86,3 +86,39 @@ def test_unreadable_settings_path_returns_defaults(tmp_path):
     store = StudioSettingsStore(tmp_path)
     store.path.mkdir(parents=True)  # a directory where the file should be
     assert store.load() == StudioSettings()
+
+
+def write_settings(store, text):
+    store.path.parent.mkdir(parents=True)
+    store.path.write_text(text)
+
+
+def test_huge_integer_master_volume_falls_back_instead_of_crashing(tmp_path):
+    store = StudioSettingsStore(tmp_path)
+    write_settings(store, '{"master_volume": 1' + "0" * 400 + ', "show_orbits": false}')
+    loaded = store.load()
+    assert loaded.master_volume == StudioSettings().master_volume
+    assert loaded.show_orbits is False
+
+
+@pytest.mark.parametrize(
+    ("stored", "expected"),
+    [("false", False), ("False", False), ("0", False), ("off", False), ("no", False),
+     ("true", True), ("TRUE", True), ("1", True), ("on", True), (0, False), (1, True)],
+)
+def test_booleans_are_parsed_not_just_truthy(tmp_path, stored, expected):
+    store = StudioSettingsStore(tmp_path)
+    write_settings(store, json.dumps({"show_orbits": stored, "ui_hidden": stored}))
+    loaded = store.load()
+    assert loaded.show_orbits is expected
+    assert loaded.ui_hidden is expected
+
+
+@pytest.mark.parametrize("stored", ["maybe", "", 2, -1, 0.5, None, [], {}, [False]])
+def test_unusable_booleans_fall_back_to_each_default(tmp_path, stored):
+    store = StudioSettingsStore(tmp_path)
+    write_settings(store, json.dumps({"show_orbits": stored, "ui_hidden": stored}))
+    loaded = store.load()
+    assert loaded.show_orbits is True  # default True
+    assert loaded.ui_hidden is False  # default False
+
