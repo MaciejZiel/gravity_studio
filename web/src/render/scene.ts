@@ -84,6 +84,7 @@ export class SolarScene {
   private transitioning = false;
   private readonly tmp = new THREE.Vector3();
   frames = 0;
+  private insets = { top: 0, bottom: 0 };
 
   constructor(private readonly opts: SceneOptions) {
     this.labelsRoot = opts.labels;
@@ -241,11 +242,12 @@ export class SolarScene {
       const r = Math.hypot(pos.getX(i), pos.getY(i));
       uv.setXY(i, (r - inner) / (outer - inner), 0.5);
     }
-    const mat = new THREE.MeshStandardMaterial({
+    // Unlit on purpose: the Sun is nearly edge-on to the ring plane, so a lit ring would render almost black.
+    const mat = new THREE.MeshBasicMaterial({
       map: this.texture("saturn_ring_alpha.png"),
+      color: 0xd6cdb8,
       transparent: true,
       side: THREE.DoubleSide,
-      roughness: 1,
       depthWrite: false,
     });
     const ring = new THREE.Mesh(geo, mat);
@@ -427,7 +429,8 @@ export class SolarScene {
     this.focusId = id;
     this.focusRadius = r.radius;
     const isBody = id !== "Sun" && !id.startsWith("mission:");
-    const distance = o.distance ?? (id === "Sun" ? this.overviewDistance() : id.startsWith("mission:") ? this.missionDistance() : Math.max(r.radius * 6, 0.12));
+    const portrait = this.camera.aspect < 0.8 ? 1.45 : 1;
+    const distance = (o.distance ?? (id === "Sun" ? this.overviewDistance() : id.startsWith("mission:") ? this.missionDistance() : Math.max(r.radius * 6, 0.12))) * (o.distance === undefined && isBody ? portrait : 1);
     let dir = o.direction;
     if (!dir) {
       if (isBody) {
@@ -519,6 +522,22 @@ export class SolarScene {
     this.camera.aspect = w / h;
     // Keep the horizontal field of view usable on narrow portrait screens.
     this.camera.fov = w / h < 0.8 ? 58 : 45;
+    this.applyInsets();
+  }
+
+  /** Reserve screen space covered by UI so the focused body is centred in the free area. */
+  setInsets(top: number, bottom: number): void {
+    if (top === this.insets.top && bottom === this.insets.bottom) return;
+    this.insets = { top, bottom };
+    this.applyInsets();
+  }
+
+  private applyInsets(): void {
+    const w = Math.max(1, this.opts.canvas.clientWidth);
+    const h = Math.max(1, this.opts.canvas.clientHeight);
+    const shift = Math.round((this.insets.bottom - this.insets.top) / 2);
+    if (shift === 0) this.camera.clearViewOffset();
+    else this.camera.setViewOffset(w, h, 0, shift, w, h);
     this.camera.updateProjectionMatrix();
   }
 
@@ -562,9 +581,9 @@ export class SolarScene {
     this.camera.far = 4000;
     this.camera.updateProjectionMatrix();
 
-    const scale = dist * 0.0075;
+    const scale = dist * 0.0038;
     for (const m of this.missions) {
-      m.marker.scale.setScalar(Math.max(scale, 0.004));
+      m.marker.scale.setScalar(Math.max(scale, 0.003));
       m.marker.visible = m.visible;
     }
     for (const m of this.moons) {
@@ -605,7 +624,12 @@ export class SolarScene {
       const world = m.mesh.getWorldPosition(new THREE.Vector3());
       place(m.label, world, show && m.mesh.visible, this.screenRadius(m.radius, world) + 6);
     }
-    for (const ms of this.missions) place(ms.label, ms.position, ms.visible, 10);
+    const camDist = this.camera.position.distanceTo(this.controls.target);
+    for (const ms of this.missions) {
+      const active = this.ms >= ms.data.launchMs && this.ms <= ms.data.endMs;
+      const focused = this.focusId === `mission:${ms.data.name}`;
+      place(ms.label, ms.position, ms.visible && (active || focused || camDist < 4), 10);
+    }
   }
 
   private screenRadius(radius: number, world: THREE.Vector3): number {

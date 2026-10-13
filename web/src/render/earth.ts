@@ -57,9 +57,9 @@ varying vec3 vNormalW;
 varying vec3 vPosW;
 uniform vec3 tint;
 void main() {
-  float rim = pow(max(0.0, 0.62 - dot(normalize(vNormalV), vec3(0.0, 0.0, 1.0))), 3.0);
+  float rim = pow(max(0.0, 0.5 - dot(normalize(vNormalV), vec3(0.0, 0.0, 1.0))), 3.0);
   float sun = smoothstep(-0.25, 0.4, dot(normalize(vNormalW), normalize(-vPosW)));
-  gl_FragColor = vec4(tint * rim * 2.2 * sun, 1.0);
+  gl_FragColor = vec4(tint * rim * 0.9 * sun, 1.0);
   #include <colorspace_fragment>
 }`;
 
