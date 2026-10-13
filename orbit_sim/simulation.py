@@ -6,8 +6,7 @@ from math import atan2, radians, tau
 
 from orbit_sim.models import CelestialBody, MoonBody
 from orbit_sim.satellites import MAJOR_MOONS, MoonDefinition
-from orbit_sim.solar_system import PlanetDefinition, SOLAR_SYSTEM_PLANETS
-
+from orbit_sim.solar_system import SOLAR_SYSTEM_PLANETS, PlanetDefinition
 
 SIMULATION_EPOCH = datetime(2000, 1, 1, 12, 0, 0)
 TIMELINE_START = datetime(1960, 1, 1, 0, 0, 0)
@@ -82,10 +81,10 @@ class OrbitalSimulation:
 
     def advance_days(self, days: float) -> None:
         advanced_days = self.simulation_days + days
-        if advanced_days > self.timeline_end_days:
-            advanced_days = self.timeline_start_days + (advanced_days - self.timeline_end_days)
-        elif advanced_days < self.timeline_start_days:
-            advanced_days = self.timeline_end_days - (self.timeline_start_days - advanced_days)
+        if not self.timeline_start_days <= advanced_days <= self.timeline_end_days:
+            # Wrap around the timeline however many lengths the step covers.
+            offset = (advanced_days - self.timeline_start_days) % self.timeline_range_days
+            advanced_days = self.timeline_start_days + offset
         self.simulation_days = advanced_days
         self._sync_body_angles()
 

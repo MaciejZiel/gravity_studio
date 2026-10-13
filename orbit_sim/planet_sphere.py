@@ -3,7 +3,7 @@ from __future__ import annotations
 from math import asin, atan2, cos, pi, radians, sin, sqrt
 
 import pygame
-from pygame import Vector2, Vector3
+from pygame import Vector3
 
 from orbit_sim.models import CelestialBody
 from orbit_sim.planet_textures import PlanetTextureLibrary

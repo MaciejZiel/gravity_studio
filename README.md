@@ -1,52 +1,31 @@
-<p align="center">
-  <img src="docs/gravity-studio.png" alt="Gravity Studio Solar System screenshot" width="100%" />
-</p>
+# Gravity Studio
 
-<h1 align="center">Gravity Studio: Solar System</h1>
+A desktop viewer for the Solar System, written in Python with Pygame. It draws the Sun and the eight planets on elliptical orbits, lets you step through time between 1960 and 2165, and opens a textured, rotating close-up when you click a planet.
 
-<p align="center">
-  A fullscreen, astronomy-inspired Solar System visualization built with <code>Python</code> and <code>Pygame</code>.
-</p>
+![The full system view with mission trajectories and the Earth sky strip](docs/screenshot-system.png)
 
-<p align="center">
-  Real planets. Cinematic focus views. Responsive fullscreen rendering. Portfolio-grade presentation.
-</p>
+| Earth close-up | Saturn close-up |
+| --- | --- |
+| ![Earth with the Moon and the Apollo 11 trajectory](docs/screenshot-earth.png) | ![Saturn with its rings and Titan](docs/screenshot-saturn.png) |
 
-## Overview
+The screenshots were rendered headless (SDL dummy driver) at 1600x900, so they are what the app draws, not mock-ups.
 
-Gravity Studio is a premium-style desktop visualization of our Solar System designed for large displays.  
-It blends a compressed but credible scale model with responsive camera choreography, real planet metadata, cinematic tours, a live time mode, and a textured focus renderer for close-up planet inspection.
+## What it does
 
-This is not a toy orbit demo. The project is built to feel closer to a compact astronomy product: restrained UI, calmer motion, modern fullscreen composition, and a codebase organized for further expansion.
+- The Sun and 8 planets, with a compressed distance scale so the whole system fits on one screen. A second scale mode (`Scale` button, `S` for the story view) stretches distances toward the real ratios.
+- Six major moons: the Moon, Io, Europa, Ganymede, Callisto and Titan.
+- Five mission trajectories: Parker Solar Probe, JWST, Voyager 1, Cassini-Huygens and Apollo 11.
+- A time slider from 1960-01-01 to 2165-01-01, speed presets (1x, 10x, 100x, 1000x), quick jumps to dates such as an equinox, a solstice or the Apollo 11 landing, and a `Live` mode that follows the real clock.
+- Scene presets (System, Inner, Giants, Outer), a focus view per planet, and two scripted tours (Grand Tour, History).
+- A strip showing approximate ecliptic longitudes of the planets as seen from Earth.
+- Screenshots with `P`, or without the UI via `Clean Shot`.
+- Settings (scene, scale mode, overlay toggles) are stored in `.gravity_studio/` in the working directory.
 
-## Highlights
+Limits worth knowing: orbits are simplified ellipses with inclination cues, not an ephemeris, so positions are illustrative and not suitable for navigation or observing plans. Mission paths are stylised polylines. Ambient audio is synthesised at start-up.
 
-- Fullscreen-by-default desktop app with responsive layout and scaling
-- Real Solar System dataset with the Sun plus all 8 planets in the correct order
-- Scene presets for `System`, `Inner`, `Giants`, `Outer`, and planet `Focus` views
-- Live `1:1` time mode, guided tours, presentation mode, date jumps, and time-speed controls
-- Textured planet close-ups with rotating shaded spheres, seasonal lighting, Earth clouds, night lights, aurora cues, and Saturn rings
-- Mission overlays, major moons, adaptive labels, sky-context strip, screenshots, local settings persistence, and ambient audio
+## Run it
 
-## What It Includes
-
-- Responsive fullscreen composition for large monitors and high-resolution displays
-- Elliptical orbit projection with inclination cues and alternate distance scaling modes
-- Clean overlay UI with HUD, focus badge, timeline, event chips, tour captions, and scene controls
-- Major moons for Earth, Jupiter, and Saturn
-- Mission trajectories for `Parker`, `JWST`, `Voyager 1`, `Cassini`, and `Apollo 11`
-- Earth-sky context strip showing approximate ecliptic longitudes from Earth's point of view
-- Scale story mode that relaxes the compressed model toward a harsher sense of real distance
-- Runtime app icon, branded splash screen, and screenshot capture workflow
-
-## Quick Start
-
-### Requirements
-
-- Python `3.10+`
-- A desktop environment that can run `Pygame`
-
-### Install and run
+You need Python 3.10 or newer and a desktop that can open a Pygame window. The app starts fullscreen.
 
 ```bash
 python3 -m venv .venv
@@ -55,94 +34,62 @@ pip install -r requirements.txt
 python main.py
 ```
 
-You can also run it as a module:
+Other entry points: `python -m orbit_sim`, or `pip install -e .` followed by `gravity-studio`. The textures live in `assets/`, outside the Python package, so use an editable or source install; a built wheel contains only code. Without the textures the app falls back to flat discs.
+
+### One-file desktop build
 
 ```bash
-python -m orbit_sim
-```
-
-### Optional desktop build
-
-```bash
-source .venv/bin/activate
 pip install pyinstaller
 python scripts/build_desktop.py
 ```
 
-## Core Experience
-
-- Watch the Solar System in a curated compressed scale that stays readable in fullscreen
-- Jump between curated scene presets depending on whether you want global context or a tighter view
-- Click a planet to open a focus experience with a rotating textured sphere and contextual data
-- Switch to `Live` mode to view the current planetary arrangement in real time
-- Launch guided tours or presentation mode for a passive, polished showcase loop
+This runs PyInstaller on `gravity_studio.spec` and bundles `assets/`. PyInstaller is not a project dependency, you install it yourself.
 
 ## Controls
 
 | Action | Input |
 | --- | --- |
-| Select a planet | `Left click` |
-| Rotate the focus sphere | `Left drag` on the focused planet |
-| Zoom | `Mouse wheel` |
-| System scenes | `Q / W / E / G` |
-| Focus selected planet | `F` |
-| Start guided tours | `T / Y` |
-| Toggle presentation mode | `D` |
-| Time speed presets | `1 / 2 / 3 / 4` |
-| Scrub simulation date | `Timeline slider` |
-| Jump to curated dates | `Quick date chips` |
-| Toggle `Live` real-time mode | `Live` |
-| Toggle sound | `Sound` |
-| Pause or resume | `Pause / Resume` |
-| Toggle orbit lines | `Orbits` or `O` |
-| Toggle labels | `Labels` or `L` |
-| Toggle mission trajectories | `M` |
-| Toggle sky context strip | `K` |
-| Toggle scale story | `S` |
-| Toggle distance scaling mode | `Scale` |
-| Hide or reveal the UI | `H` |
-| Capture a screenshot | `P` |
-| Capture a HUD-free shot | `Clean Shot` |
-| Reset the viewer state | `Reset` |
+| Select a planet | Left click |
+| Rotate the focus sphere | Left drag on the focused planet |
+| Zoom | Mouse wheel |
+| Scenes: System, Inner, Outer, Giants | `Q` / `W` / `E` / `G` |
+| Focus the selected planet | `F` |
+| Grand Tour, History tour | `T` / `Y` |
+| Presentation mode | `D` |
+| Time speed 1x to 1000x | `1` to `4` |
+| Pause or resume | `Space` |
+| Orbit lines, labels | `O`, `L` |
+| Missions, sky strip, story scale | `M`, `K`, `S` |
+| Hide or show the UI | `H` |
+| Screenshot | `P` |
 
-## Repository Layout
+Everything else (Live, Sound, Scale, Reset, Clean Shot, date chips and the timeline slider) is on screen.
+
+## Development
+
+```bash
+pip install -r requirements.txt pytest ruff
+ruff check .
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy pytest
+```
+
+There are 163 tests. They cover the orbit math, time and date jumps, the scale modes, settings loading, texture loading and the data tables for planets, moons and missions, and they run without a display. CI runs ruff and the tests on Python 3.10 to 3.13.
 
 | Path | Purpose |
 | --- | --- |
-| `main.py` | Desktop entry point |
-| `orbit_sim/app.py` | App orchestration, state flow, and input handling |
-| `orbit_sim/solar_system.py` | Solar System dataset and planet metadata |
-| `orbit_sim/satellites.py` | Major moon dataset |
-| `orbit_sim/missions.py` | Mission trajectory presets |
-| `orbit_sim/tours.py` | Guided tour definitions |
-| `orbit_sim/simulation.py` | Orbital state and time progression |
-| `orbit_sim/camera.py` | Responsive layout, zoom, scene presets, and distance scaling |
-| `orbit_sim/rendering.py` | Main scene renderer and focus-view composition |
-| `orbit_sim/planet_sphere.py` | Textured close-up sphere renderer |
-| `orbit_sim/ui.py` | HUD, info panels, strips, and overlay controls |
-| `orbit_sim/background.py` | Procedural star field and space backdrop |
-| `orbit_sim/audio.py` | Adaptive ambient soundscape |
-| `orbit_sim/branding.py` | Splash screen and runtime branding |
-| `orbit_sim/settings.py` | Local settings persistence |
-| `assets/planets/` | Planet maps, ring masks, and auxiliary texture assets |
-| `screenshots/` | Runtime screenshots captured from the app |
+| `main.py`, `orbit_sim/__main__.py` | Entry points |
+| `orbit_sim/app.py` | Main loop, input handling, state |
+| `orbit_sim/simulation.py` | Orbital state and the simulation clock |
+| `orbit_sim/solar_system.py`, `satellites.py`, `missions.py`, `tours.py` | Data tables |
+| `orbit_sim/camera.py` | Layout, zoom, scene presets, distance scaling |
+| `orbit_sim/rendering.py`, `planet_sphere.py`, `planet_textures.py` | Scene and textured sphere rendering |
+| `orbit_sim/ui.py` | HUD and controls |
+| `orbit_sim/settings.py` | Settings persistence |
+| `assets/planets/` | Planet maps and the Saturn ring mask |
+| `tests/` | pytest suite |
 
-## Technical Notes
-
-- The visualization uses a deliberately compressed scale model so the full Solar System remains readable in fullscreen
-- Planet close-ups use textured rotating spheres rather than flat 2D portraits
-- The app includes a substantial performance pass around starfield caching, label caching, focus overlays, mission geometry, and sphere rendering hot paths
-- Settings such as UI visibility, scale mode, and overlay toggles persist locally between runs
-
-## Project Priorities
-
-- Keep the visualization readable in fullscreen without collapsing into a literal but unusable scale model
-- Make the app feel calm, modern, and astronomy-inspired rather than playful or demo-like
-- Preserve a modular structure so rendering, simulation, camera, UI, and assets can evolve independently
-- Ship something that works well both as a portfolio piece and as a clean base for future expansion
+`web/` holds a separate browser version and is not described here.
 
 ## License
 
-The source code is released under the MIT License, see [LICENSE](LICENSE).
-
-Planet textures in `assets/planets/` come from [Solar System Scope](https://www.solarsystemscope.com/textures/) via Wikimedia Commons and are licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); they are not covered by the MIT License.
+The source code is MIT, see [LICENSE](LICENSE). The planet textures in `assets/planets/` come from [Solar System Scope](https://www.solarsystemscope.com/textures/) and are CC BY 4.0, which is not the same licence as the code. Third-party components, including pygame (LGPL-2.1, imported as a library and not modified), are listed in [3rdparty_licenses.md](3rdparty_licenses.md).
