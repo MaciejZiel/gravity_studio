@@ -44,6 +44,10 @@ def test_missing_texture_returns_none(display):
 def test_auxiliary_texture_loads_the_ring_mask_with_alpha(display):
     ring = PlanetTextureLibrary().auxiliary_texture("saturn_ring_alpha", (256, 64))
     assert ring.get_size() == (256, 64)
+    assert ring.get_flags() & pygame.SRCALPHA
+    alphas = {ring.get_at((x, 32)).a for x in range(0, 256, 4)}
+    # A real ring mask has both transparent gaps and opaque bands, not a flat fill.
+    assert min(alphas) < 128 < max(alphas)
 
 
 def test_luminance_rows_match_the_scaled_texture(display):
