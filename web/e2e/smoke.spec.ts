@@ -62,3 +62,29 @@ test("no horizontal scroll at 400 px", async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("command palette: open with /, filter, arrow keys and Enter focus a body", async ({ page }) => {
+  await ready(page);
+  await page.keyboard.press("/");
+  const input = page.getByRole("combobox");
+  await expect(input).toBeFocused();
+  await input.fill("jup");
+  await expect(page.getByRole("option").first()).toHaveText(/Jupiter/);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#palette")).not.toBeVisible();
+  expect(await page.evaluate(() => window.__gravity!.focus())).toBe("Jupiter");
+  await page.keyboard.press("Control+k");
+  await page.getByRole("combobox").fill("voy");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("option", { selected: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#palette")).not.toBeVisible();
+});
+
+test("number keys focus planets and ? opens the shortcut list", async ({ page }) => {
+  await ready(page);
+  await page.keyboard.press("5");
+  expect(await page.evaluate(() => window.__gravity!.focus())).toBe("Jupiter");
+  await page.keyboard.press("?");
+  await expect(page.locator("#help")).toBeVisible();
+});
