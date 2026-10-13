@@ -99,6 +99,38 @@ def test_advance_days_wraps_past_the_start_to_the_end(simulation):
     assert simulation.simulation_days == pytest.approx(simulation.timeline_end_days - 3.0)
 
 
+def test_advance_days_wraps_many_timeline_lengths_back_inside(simulation):
+    start = simulation.timeline_start_days
+    span = simulation.timeline_range_days
+    simulation.set_simulation_days(start + 10.0)
+    simulation.advance_days(span * 3 + 25.0)
+    assert simulation.simulation_days == pytest.approx(start + 35.0)
+    assert start <= simulation.simulation_days <= simulation.timeline_end_days
+
+
+def test_advance_days_wraps_many_timeline_lengths_backwards(simulation):
+    end = simulation.timeline_end_days
+    span = simulation.timeline_range_days
+    simulation.set_simulation_days(end - 10.0)
+    simulation.advance_days(-(span * 2 + 25.0))
+    assert simulation.simulation_days == pytest.approx(end - 35.0)
+
+
+@pytest.mark.parametrize("days", [1e5, -1e5, 3.7e6, -2.2e6, 74999.5])
+def test_advance_days_always_lands_inside_the_timeline(simulation, days):
+    simulation.advance_days(days)
+    assert simulation.timeline_start_days <= simulation.simulation_days <= simulation.timeline_end_days
+    # Body angles follow the wrapped value, so the Sun-relative picture stays consistent with the date shown.
+    earth = simulation.body_named("Earth")
+    assert earth.angle == pytest.approx(earth.starting_angle + earth.angular_speed * simulation.simulation_days)
+
+
+def test_a_full_timeline_step_returns_to_the_same_date(simulation):
+    simulation.set_simulation_days(1234.5)
+    simulation.advance_days(simulation.timeline_range_days)
+    assert simulation.simulation_days == pytest.approx(1234.5)
+
+
 def test_speed_levels_and_days_per_second(simulation):
     assert simulation.time_speed_levels == TIME_SPEED_LEVELS == (1, 10, 100, 1000)
     assert simulation.time_speed_index == 1
