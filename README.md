@@ -25,7 +25,7 @@ Limits worth knowing: orbits are simplified ellipses with inclination cues, not 
 
 ## Run it
 
-You need Python 3.10 or newer and a desktop that can open a Pygame window. The app starts fullscreen.
+You need Python 3.10 to 3.13 (pygame 2.6.1 publishes no wheels for 3.14 yet and its source build fails there) and a desktop that can open a Pygame window. The app starts fullscreen.
 
 ```bash
 python3 -m venv .venv

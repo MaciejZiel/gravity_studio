@@ -32,10 +32,12 @@ def test_console_entry_point_resolves_to_a_callable(pyproject):
     assert callable(getattr(importlib.import_module(module_name), attribute))
 
 
-def test_python_floor_matches_the_ci_matrix(pyproject):
-    assert pyproject["project"]["requires-python"] == ">=3.10"
+def test_python_range_matches_the_ci_matrix(pyproject):
+    # pygame 2.6.1 has no cp314 wheel and its sdist does not build, so the upper bound is deliberate.
+    assert pyproject["project"]["requires-python"] == ">=3.10,<3.14"
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    assert '"3.10"' in workflow
+    versions = re.search(r"python-version: \[(.*?)\]", workflow).group(1)
+    assert re.findall(r'"(3\.\d+)"', versions) == ["3.10", "3.11", "3.12", "3.13"]
 
 
 def test_asset_directory_is_assets_planets_two_levels_above_the_module():
