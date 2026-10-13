@@ -4,6 +4,7 @@ import { MOONS, PLANETS, SUN, type MoonData, type PlanetData } from "../data/bod
 import { MISSIONS, type MissionData } from "../data/missions";
 import type { SceneMode } from "../data/tours";
 import { orbitOutline } from "../astro/ephemeris";
+import { missionCurve, missionPointAt } from "../astro/missionpath";
 import {
   SUN_VISUAL_RADIUS,
   type DistanceMode,
@@ -83,6 +84,7 @@ export class SolarScene {
   private goalDir: THREE.Vector3 | null = null;
   private transitioning = false;
   private readonly tmp = new THREE.Vector3();
+  private readonly tmp2 = new THREE.Vector3();
   frames = 0;
   private insets = { top: 0, bottom: 0 };
 
@@ -297,16 +299,8 @@ export class SolarScene {
   }
 
   private rebuildMissions(): void {
-    const earth = this.planets.find((p) => p.data.name === "Earth")!;
     for (const m of this.missions) {
-      let pts: THREE.Vector3[];
-      if (m.data.frame === "heliocentric") {
-        pts = m.data.path.map(([x, y]) => new THREE.Vector3(...toScene({ x, y, z: 0 }, this.mode)));
-      } else {
-        const scale = earth.radius * 5.8;
-        pts = m.data.path.map(([x, y]) => new THREE.Vector3(x * scale * 3, 0, -y * scale * 3));
-      }
-      m.curve = new THREE.CatmullRomCurve3(pts, false, "centripetal");
+      m.curve = missionCurve(m.data, this.mode);
       const sampled = m.curve.getSpacedPoints(160);
       m.line.geometry.dispose();
       m.line.geometry = new THREE.BufferGeometry().setFromPoints(sampled);
@@ -352,10 +346,8 @@ export class SolarScene {
     const earth = this.planets.find((p) => p.data.name === "Earth")!;
     for (const m of this.missions) {
       if (!m.curve) continue;
-      const total = m.data.endMs - m.data.launchMs;
-      const progress = Math.min(1, Math.max(0, (this.ms - m.data.launchMs) / total));
       const started = this.ms >= m.data.launchMs;
-      const p = m.curve.getPointAt(progress);
+      const p = missionPointAt(m.data, m.curve, this.ms, this.tmp2);
       if (m.data.frame === "earth_local") {
         m.holder.position.copy(earth.group.position);
         m.marker.position.copy(p).add(earth.group.position);
