@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pygame import Vector2
-
 import pygame
+from pygame import Vector2
 
 from orbit_sim.models import CelestialBody
 from orbit_sim.simulation import TimelineBookmark
