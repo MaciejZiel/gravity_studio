@@ -9,6 +9,7 @@ import { Clock, SPEEDS, dateInputValue, formatUtc } from "./clock";
 import { SolarScene } from "./render/scene";
 import { TourRunner } from "./tour";
 import { describe } from "./ui/info";
+import { createPalette, type Command } from "./ui/palette";
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -26,12 +27,24 @@ function webglAvailable(): boolean {
   }
 }
 
-function setupCredits(): void {
-  const dlg = $<HTMLDialogElement>("credits");
-  $("credits-open").addEventListener("click", () => {
-    if (typeof dlg.showModal === "function") dlg.showModal();
-    else dlg.setAttribute("open", "");
+function openDialog(dlg: HTMLDialogElement): void {
+  if (dlg.open) return;
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+
+function setupDialogs(): void {
+  $("credits-from-help").addEventListener("click", () => {
+    $<HTMLDialogElement>("help").close();
+    $("credits-open").click();
   });
+  for (const [button, id] of [["credits-open", "credits"], ["help-open", "help"]] as const) {
+    const dlg = $<HTMLDialogElement>(id);
+    $(button).addEventListener("click", () => openDialog(dlg));
+    dlg.addEventListener("click", (e) => {
+      if (e.target === dlg) dlg.close();
+    });
+  }
 }
 
 function showNoWebgl(): void {
@@ -47,7 +60,7 @@ declare global {
 }
 
 function start(): void {
-  setupCredits();
+  setupDialogs();
   if (!webglAvailable()) return showNoWebgl();
 
   const canvas = $<HTMLCanvasElement>("view");
@@ -71,7 +84,7 @@ function start(): void {
     const vh = window.innerHeight;
     let covered = vh - dock.getBoundingClientRect().top;
     if (phone.matches) {
-      for (const id of ["bodies", "info"]) {
+      for (const id of ["info"]) {
         const el = $(id);
         if (el.offsetParent !== null) covered = Math.max(covered, vh - el.getBoundingClientRect().top);
       }
@@ -83,16 +96,6 @@ function start(): void {
   window.addEventListener("resize", syncDock);
   syncDock();
 
-  const tabs = Array.from(dock.querySelectorAll<HTMLButtonElement>(".tabs button"));
-  const groups = Array.from(dock.querySelectorAll<HTMLElement>(".group"));
-  const selectTab = (name: string) => {
-    for (const t of tabs) t.setAttribute("aria-selected", String(t.dataset.tab === name));
-    for (const g of groups) g.classList.toggle("active", g.dataset.group === name);
-    syncDock();
-  };
-  for (const t of tabs) t.addEventListener("click", () => selectTab(t.dataset.tab!));
-  selectTab("time");
-
   // ---- bodies list ----
   const nav = $("bodies");
   const focusBody = (id: string) => {
@@ -100,16 +103,21 @@ function start(): void {
     renderBodies();
     renderInfo();
   };
-  const chip = (id: string, label: string, color: string, cls = "") => {
+  const chip = (id: string, label: string, color: string, cls = "", key = "") => {
     const b = document.createElement("button");
     b.type = "button";
     b.className = `chip ${cls}`.trim();
     b.dataset.id = id;
     b.setAttribute("aria-pressed", String(scene.getFocus() === id));
+    const num = document.createElement("span");
+    num.className = "key";
+    num.setAttribute("aria-hidden", "true");
+    num.textContent = key;
     const dot = document.createElement("span");
     dot.className = "dot";
     dot.style.background = color;
-    b.append(dot, document.createTextNode(label));
+    b.append(num, dot, document.createTextNode(label));
+    if (key) b.setAttribute("aria-keyshortcuts", key);
     b.addEventListener("click", () => focusBody(id));
     return b;
   };
@@ -117,11 +125,11 @@ function start(): void {
     const f = scene.getFocus();
     const moon = MOONS.find((m) => m.name === f);
     const showMoonsOf = moon ? moon.parent : PLANETS.some((p) => p.name === f) ? f : null;
-    nav.replaceChildren(chip("Sun", "Sun", "#ffcf70"));
-    for (const p of PLANETS) {
-      nav.appendChild(chip(p.name, p.name, p.accent));
+    nav.replaceChildren(chip("Sun", "Sun", "#ffcf70", "", "S"));
+    PLANETS.forEach((p, i) => {
+      nav.appendChild(chip(p.name, p.name, p.accent, "", String(i + 1)));
       if (p.name === showMoonsOf) for (const m of moonsOf(p.name)) nav.appendChild(chip(m.name, m.name, m.accent, "moon"));
-    }
+    });
     nav.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ block: "nearest", inline: "center" });
   }
 
@@ -130,7 +138,16 @@ function start(): void {
   const infoKind = $("info-kind");
   const infoFact = $("info-fact");
   const infoStats = $("info-stats");
+  const infoMore = $("info-more");
+  const KEY_FACTS = 3;
   let infoKey = "";
+  infoMore.addEventListener("click", () => {
+    const open = infoMore.getAttribute("aria-expanded") !== "true";
+    infoMore.setAttribute("aria-expanded", String(open));
+    infoMore.textContent = open ? "Less" : "More";
+    $("info").classList.toggle("expanded", open);
+    syncDock();
+  });
   function renderInfo(): void {
     const f = scene.getFocus();
     const view = describe(f, clock.ms);
@@ -141,10 +158,11 @@ function start(): void {
     if (key !== infoKey) {
       infoKey = key;
       infoStats.replaceChildren(
-        ...view.stats.flatMap(([k]) => {
+        ...view.stats.flatMap(([k], i) => {
           const dt = document.createElement("dt");
           dt.textContent = k;
           const dd = document.createElement("dd");
+          if (i >= KEY_FACTS) dt.className = dd.className = "extra";
           return [dt, dd];
         }),
       );
@@ -168,13 +186,6 @@ function start(): void {
     });
     speeds.appendChild(b);
   });
-  const jump = $<HTMLSelectElement>("jump");
-  for (const b of BOOKMARKS) {
-    const o = document.createElement("option");
-    o.value = b.id;
-    o.textContent = b.label;
-    jump.appendChild(o);
-  }
   const jumpTo = (id: string) => {
     const b = BOOKMARKS.find((x) => x.id === id);
     if (!b) return;
@@ -185,10 +196,6 @@ function start(): void {
     }
     syncTime(true);
   };
-  jump.addEventListener("change", () => {
-    jumpTo(jump.value);
-    jump.value = "";
-  });
   $("live").addEventListener("click", () => {
     clock.goLive();
     syncTime(true);
@@ -245,52 +252,30 @@ function start(): void {
     if (!scrubbing) slider.value = String(Math.round(clock.fraction * 10000));
   }
 
-  // ---- view controls ----
-  const toggle = (id: string, on: (v: boolean) => void) => {
-    const b = $(id);
-    b.addEventListener("click", () => {
-      const v = b.getAttribute("aria-pressed") !== "true";
-      b.setAttribute("aria-pressed", String(v));
-      on(v);
-    });
-  };
-  toggle("t-orbits", (v) => scene.setVisibility({ orbits: v }));
-  toggle("t-labels", (v) => scene.setVisibility({ labels: v }));
-  toggle("t-missions", (v) => scene.setVisibility({ missions: v }));
-  toggle("t-true", (v) => {
-    userTrue = v;
-    scene.setDistanceMode(v ? "true" : "compressed");
-  });
-  $("zoom-in").addEventListener("click", () => scene.zoomBy(0.6));
-  $("zoom-out").addEventListener("click", () => scene.zoomBy(1.6));
-  $("overview").addEventListener("click", () => {
+  // ---- view settings (reached from the command palette) ----
+  const view = { orbits: true, labels: true, missions: true };
+  const zoomIn = () => scene.zoomBy(0.6);
+  const zoomOut = () => scene.zoomBy(1.6);
+  const overview = () => {
     if (tours.active) tours.stop();
     scene.focus("Sun", { direction: new Vector3(0, 0.55, 0.83) });
     renderBodies();
     renderInfo();
-  });
+  };
+  const setTrue = (v: boolean) => {
+    userTrue = v;
+    scene.setDistanceMode(v ? "true" : "compressed");
+  };
 
   // ---- missions ----
-  const missions = $("missions");
-  for (const m of MISSIONS) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "chip";
-    const dot = document.createElement("span");
-    dot.className = "dot";
-    dot.style.background = m.color;
-    b.append(dot, document.createTextNode(m.label));
-    b.title = `${m.name}: jump to the middle of the path`;
-    b.addEventListener("click", () => {
-      clock.setTime(m.launchMs + (m.endMs - m.launchMs) * 0.4);
-      clock.playing = false;
-      syncTime(true);
-      scene.setTime(clock.ms);
-      if (m.frame === "earth_local") focusBody("Earth");
-      else focusBody(`mission:${m.name}`);
-    });
-    missions.appendChild(b);
-  }
+  const goMission = (m: (typeof MISSIONS)[number]) => {
+    clock.setTime(m.launchMs + (m.endMs - m.launchMs) * 0.4);
+    clock.playing = false;
+    syncTime(true);
+    scene.setTime(clock.ms);
+    if (m.frame === "earth_local") focusBody("Earth");
+    else focusBody(`mission:${m.name}`);
+  };
 
   // ---- tours ----
   const tourbar = $("tourbar");
@@ -326,29 +311,58 @@ function start(): void {
       scene.setDistanceMode(userTrue ? "true" : "compressed");
     },
   });
-  const tourBox = $("tours");
-  for (const t of TOURS) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = t.label;
-    b.title = t.description;
-    b.addEventListener("click", () => tours.start(t));
-    tourBox.appendChild(b);
-  }
   $("tour-stop").addEventListener("click", () => tours.stop());
   $("tour-next").addEventListener("click", () => tours.next());
   $("tour-prev").addEventListener("click", () => tours.prev());
 
+  // ---- command palette ----
+  const onOff = (v: boolean) => (v ? "on, turn off" : "off, turn on");
+  const palette = createPalette($<HTMLDialogElement>("palette"), () => {
+    const cmds: Command[] = [{ label: "Sun", hint: "S", run: () => focusBody("Sun") }];
+    PLANETS.forEach((p, i) => {
+      cmds.push({ label: p.name, hint: String(i + 1), run: () => focusBody(p.name) });
+    });
+    for (const m of MOONS) cmds.push({ label: m.name, hint: `Moon of ${m.parent}`, run: () => focusBody(m.name) });
+    for (const m of MISSIONS) cmds.push({ label: m.name, hint: "Mission", run: () => goMission(m) });
+    for (const t of TOURS) cmds.push({ label: `Tour: ${t.label}`, hint: t.description, run: () => tours.start(t) });
+    for (const b of BOOKMARKS) cmds.push({ label: b.label, hint: "Date", run: () => jumpTo(b.id) });
+    cmds.push(
+      { label: "Overview", hint: "0", run: overview },
+      { label: "Zoom in", hint: "+", run: zoomIn },
+      { label: "Zoom out", hint: "-", run: zoomOut },
+      { label: clock.playing ? "Pause time" : "Resume time", hint: "Space", run: () => (clock.togglePlay(), syncTime(true)) },
+      { label: `Orbits: ${onOff(view.orbits)}`, hint: "View", run: () => scene.setVisibility({ orbits: (view.orbits = !view.orbits) }) },
+      { label: `Labels: ${onOff(view.labels)}`, hint: "View", run: () => scene.setVisibility({ labels: (view.labels = !view.labels) }) },
+      { label: `Mission paths: ${onOff(view.missions)}`, hint: "View", run: () => scene.setVisibility({ missions: (view.missions = !view.missions) }) },
+      { label: `True distances: ${onOff(userTrue)}`, hint: "View", run: () => setTrue(!userTrue) },
+      { label: "Keyboard help", hint: "?", run: () => $("help-open").click() },
+    );
+    return cmds;
+  });
+  $("palette-open").addEventListener("click", () => palette.open());
+
   // ---- keyboard ----
   window.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      palette.open();
+      return;
+    }
     const tag = (e.target as HTMLElement).tagName;
     if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === "+" || e.key === "=") scene.zoomBy(0.6);
-    else if (e.key === "-" || e.key === "_") scene.zoomBy(1.6);
-    else if (e.key === "0") $("overview").click();
+    if (e.key === "/") {
+      e.preventDefault();
+      palette.open();
+    } else if (e.key === "?") $("help-open").click();
+    else if (e.key === "+" || e.key === "=") zoomIn();
+    else if (e.key === "-" || e.key === "_") zoomOut();
+    else if (e.key === "0") overview();
     else if (e.key >= "1" && e.key <= "8") focusBody(PLANETS[Number(e.key) - 1]!.name);
     else if (e.key === "s" || e.key === "S") focusBody("Sun");
-    else if (e.key === " " && tag !== "BUTTON") {
+    else if (e.key === "l" || e.key === "L") {
+      clock.goLive();
+      syncTime(true);
+    } else if (e.key === " " && tag !== "BUTTON") {
       e.preventDefault();
       clock.togglePlay();
       syncTime(true);

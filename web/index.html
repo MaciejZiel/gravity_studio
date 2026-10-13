@@ -7,21 +7,25 @@
     <meta name="description" content="Gravity Studio for the browser: the Solar System driven by real orbital elements, from 1960 to 2165." />
     <title>Gravity Studio</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" href="/fonts/schibsted-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <canvas id="view" tabindex="0" aria-label="Solar System. Drag to rotate, scroll or pinch to zoom."></canvas>
     <div id="labels" aria-hidden="true"></div>
 
     <header id="topbar">
-      <div class="brand">
-        <img src="/favicon.svg" alt="" width="26" height="26" />
-        <span>Gravity Studio</span>
+      <div class="stamp">
+        <span class="brand">Gravity Studio</span>
+        <div class="clockbox" aria-live="off">
+          <time id="clock" class="mono">----</time>
+          <span id="clock-mode" class="badge">Live</span>
+        </div>
       </div>
-      <div class="clockbox" aria-live="off">
-        <time id="clock" class="mono">----</time>
-        <span id="clock-mode" class="badge">Live</span>
-      </div>
-      <button id="credits-open" class="ghost" type="button">Credits</button>
+      <nav class="cmds" aria-label="Commands">
+        <button id="palette-open" class="link" type="button" aria-haspopup="dialog">Search <kbd>/</kbd></button>
+        <button id="help-open" class="link" type="button" aria-haspopup="dialog">Help <kbd>?</kbd></button>
+        <button id="credits-open" class="link" type="button">Credits</button>
+      </nav>
     </header>
 
     <nav id="bodies" aria-label="Bodies"></nav>
@@ -29,10 +33,11 @@
     <section id="info" aria-live="polite">
       <div class="info-head">
         <h1 id="info-name">Solar System</h1>
-        <span id="info-kind" class="muted"></span>
+        <span id="info-kind"></span>
       </div>
-      <p id="info-fact"></p>
       <dl id="info-stats"></dl>
+      <p id="info-fact"></p>
+      <button id="info-more" class="link" type="button" aria-expanded="false" aria-controls="info-stats info-fact">More</button>
     </section>
 
     <section id="tourbar" hidden>
@@ -41,68 +46,56 @@
         <span id="tour-caption"></span>
       </div>
       <div class="tour-actions">
-        <button id="tour-prev" type="button" class="ghost small">Back</button>
-        <button id="tour-next" type="button" class="ghost small">Next</button>
-        <button id="tour-stop" type="button" class="ghost small">Stop</button>
+        <button id="tour-prev" type="button" class="link">Back</button>
+        <button id="tour-next" type="button" class="link">Next</button>
+        <button id="tour-stop" type="button" class="link">Stop</button>
       </div>
       <div class="tour-progress"><div id="tour-bar"></div></div>
     </section>
 
-    <footer id="dock">
-      <div class="tabs" role="tablist" aria-label="Controls">
-        <button role="tab" aria-selected="true" data-tab="time" type="button">Time</button>
-        <button role="tab" aria-selected="false" data-tab="view" type="button">View</button>
-        <button role="tab" aria-selected="false" data-tab="tours" type="button">Tours</button>
+    <footer id="dock" aria-label="Time">
+      <div class="transport">
+        <button id="live" class="link live" type="button" aria-pressed="true">Live</button>
+        <button id="reverse" class="icon" type="button" aria-label="Play backwards" aria-pressed="false">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M18 5v14L8 12zM6 5h2v14H6z" fill="currentColor"/></svg>
+        </button>
+        <button id="play" class="icon" type="button" aria-label="Pause">
+          <svg id="play-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/></svg>
+        </button>
+        <div id="speeds" class="seg" role="group" aria-label="Speed"></div>
       </div>
-
-      <section class="group" data-group="time" aria-label="Time">
-        <div class="row">
-          <button id="live" class="primary" type="button" aria-pressed="true">Live</button>
-          <button id="reverse" class="ghost" type="button" aria-label="Play backwards" aria-pressed="false">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M18 5v14L8 12zM6 5h2v14H6z" fill="currentColor"/></svg>
-          </button>
-          <button id="play" class="ghost" type="button" aria-label="Pause">
-            <svg id="play-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/></svg>
-          </button>
-          <div id="speeds" class="seg" role="group" aria-label="Speed"></div>
-        </div>
-        <div class="row">
-          <input id="timeline" type="range" min="0" max="10000" step="1" value="0" aria-label="Date on the timeline, 1960 to 2165" />
-        </div>
-        <div class="row wrap">
-          <label class="field">Date (UTC)
-            <input id="date" type="date" min="1960-01-01" max="2165-01-01" />
-          </label>
-          <label class="field">Jump to
-            <select id="jump"><option value="">Choose a moment</option></select>
-          </label>
-        </div>
-      </section>
-
-      <section class="group" data-group="view" aria-label="View">
-        <div class="row wrap">
-          <button id="zoom-out" class="ghost" type="button" aria-label="Zoom out">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 11h14v2H5z" fill="currentColor"/></svg>
-          </button>
-          <button id="zoom-in" class="ghost" type="button" aria-label="Zoom in">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z" fill="currentColor"/></svg>
-          </button>
-          <button id="overview" class="ghost" type="button">Overview</button>
-        </div>
-        <div class="row wrap toggles">
-          <button class="toggle" id="t-orbits" type="button" aria-pressed="true">Orbits</button>
-          <button class="toggle" id="t-labels" type="button" aria-pressed="true">Labels</button>
-          <button class="toggle" id="t-missions" type="button" aria-pressed="true">Missions</button>
-          <button class="toggle" id="t-true" type="button" aria-pressed="false">True distances</button>
-        </div>
-        <p class="hint">Sizes are enlarged and distances compressed so every body stays visible. True distances switches distances to linear au.</p>
-      </section>
-
-      <section class="group" data-group="tours" aria-label="Tours and missions">
-        <div id="tours" class="row wrap"></div>
-        <div id="missions" class="row wrap"></div>
-      </section>
+      <input id="timeline" type="range" min="0" max="10000" step="1" value="0" aria-label="Date on the timeline, 1960 to 2165" />
+      <label class="date"><span class="sr">Date (UTC)</span>
+        <input id="date" type="date" min="1960-01-01" max="2165-01-01" />
+      </label>
     </footer>
+
+    <dialog id="palette" aria-label="Command palette">
+      <div class="pal-box">
+        <input id="pal-input" type="text" role="combobox" aria-expanded="true" aria-controls="pal-list" aria-autocomplete="list" aria-label="Go to a body, mission, date or setting" placeholder="Go to a planet, moon, mission, tour, date or setting" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" />
+        <ul id="pal-list" role="listbox" aria-label="Results"></ul>
+        <p class="pal-foot"><span>Up and down to move</span><span>Enter to go</span><span>Esc to close</span></p>
+      </div>
+    </dialog>
+
+    <dialog id="help" aria-labelledby="help-title">
+      <form method="dialog">
+        <h2 id="help-title">Keyboard</h2>
+        <dl class="keys">
+          <dt><kbd>/</kbd> <kbd>Ctrl K</kbd></dt><dd>Search bodies, missions, dates, tours and view settings</dd>
+          <dt><kbd>1</kbd> to <kbd>8</kbd></dt><dd>Focus Mercury to Neptune</dd>
+          <dt><kbd>S</kbd></dt><dd>Focus the Sun</dd>
+          <dt><kbd>0</kbd></dt><dd>Overview of the whole system</dd>
+          <dt><kbd>Space</kbd></dt><dd>Pause or resume time</dd>
+          <dt><kbd>L</kbd></dt><dd>Back to live time</dd>
+          <dt><kbd>+</kbd> <kbd>-</kbd></dt><dd>Zoom in or out</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Close this window, the search or a tour</dd>
+        </dl>
+        <p class="muted">Body sizes are enlarged and distances compressed so every body stays visible. The command True distances switches distances to linear au.</p>
+        <button class="link" value="close">Close</button>
+        <button class="link" id="credits-from-help" type="button">Credits</button>
+      </form>
+    </dialog>
 
     <section id="nowebgl" hidden role="alert">
       <h1>WebGL is not available</h1>
@@ -122,7 +115,7 @@
         <p>Planet positions use the approximate Keplerian elements of E. M. Standish and J. G. Williams, published by the <a href="https://ssd.jpl.nasa.gov/planets/approx_pos.html" target="_blank" rel="noreferrer noopener">JPL Solar System Dynamics group</a>.</p>
         <p>The Sun and moon surfaces are generated procedurally in your browser. 3D rendering by <a href="https://threejs.org/" target="_blank" rel="noreferrer noopener">three.js</a> (MIT).</p>
         <p class="muted">Moons other than Earth's Moon use circular orbits with arbitrary starting phases. Mission paths are schematic.</p>
-        <button class="primary" value="close">Close</button>
+        <button class="link" value="close">Close</button>
       </form>
     </dialog>
 
