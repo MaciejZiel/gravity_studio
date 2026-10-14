@@ -6,12 +6,14 @@
 :root {
   color-scheme: dark;
   --bg: #0d0c0a;
-  --ink: rgba(13, 12, 10, 0.9);
+  --ink: rgba(13, 12, 10, 0.95);
   --solid: #14120f;
   --line: rgba(233, 226, 210, 0.2);
   --rule: rgba(233, 226, 210, 0.38);
   --text: #ebe5d6;
-  --muted: #a39c8b;
+  --muted: #b4ad9c;
+  --scrim: rgba(13, 12, 10, 0.92);
+  --halo: 0 0 1px #000, 0 0 3px #000, 0 0 6px #000, 0 0 10px rgba(0, 0, 0, 0.95), 0 0 18px rgba(0, 0, 0, 0.85);
   --accent: #9fb8a4;
   --focus: #c9dccb;
   --gutter: max(18px, env(safe-area-inset-left, 0px));
@@ -58,22 +60,26 @@ html, body {
   font-size: 15px;
   font-style: italic;
   letter-spacing: 0.01em;
-  text-shadow: 0 0 6px var(--bg), 0 0 12px var(--bg);
+  text-shadow: var(--halo);
   white-space: nowrap;
   will-change: transform;
-  padding-left: 10px;
+  margin-left: 10px;
+  padding: 0 5px;
+  color: var(--text);
+  background: rgba(13, 12, 10, 0.72);
+  border-radius: 2px;
 }
 .body-label::before {
   content: "";
   position: absolute;
-  right: 100%;
+  right: calc(100% + 5px);
   top: 50%;
-  width: 34px;
+  width: 44px;
   height: 1px;
   background: linear-gradient(to right, transparent, var(--rule));
 }
-.body-label.moon { font-size: 13px; opacity: 0.85; }
-.body-label.mission { font-size: 13px; font-style: normal; font-family: var(--mono); color: var(--accent) !important; }
+.body-label.moon { font-size: 13px; }
+.body-label.mission { font-size: 13px; font-style: normal; font-family: var(--mono); color: var(--accent); }
 
 button, select, input { font: inherit; color: inherit; }
 button {
@@ -110,6 +116,8 @@ button.small { min-height: 30px; }
   gap: 24px;
   pointer-events: none;
   z-index: 5;
+  isolation: isolate;
+  text-shadow: var(--halo);
 }
 #topbar > * { pointer-events: auto; }
 .brand { font-size: 22px; font-weight: 500; letter-spacing: -0.005em; }
@@ -121,24 +129,55 @@ button.small { min-height: 30px; }
 
 /* Bodies: an index set in the margin */
 #bodies {
+  isolation: isolate;
+  text-shadow: var(--halo);
   position: fixed;
-  right: var(--gutter);
+  right: 0;
   top: calc(env(safe-area-inset-top, 0px) + 68px);
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 0;
-  padding-right: 14px;
-  border-right: 1px solid var(--line);
+  padding: 0 calc(var(--gutter) + 14px) 28px 0;
   z-index: 4;
   max-height: calc(100% - 340px);
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: none;
 }
 .chip { justify-content: flex-end; flex-direction: row-reverse; min-height: 28px; padding: 2px 0; font-size: 16px; }
 .chip .dot { width: 5px; height: 5px; border-radius: 50%; flex: none; }
 .chip.moon { font-size: 14px; font-style: italic; margin-right: 12px; }
 .chip.sep { margin-top: 6px; }
+
+/* A soft dark ground behind the text that sits directly on the 3D view, so orbit lines and bright limbs never cut through it.
+   The pseudo-elements only extend up and left (never right or down) so they cannot create scrollable overflow. */
+#info::before, #bodies::before, #topbar::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+#info::before {
+  inset: -10px -56px -22px calc(-1 * var(--gutter));
+  background: var(--scrim);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent), linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent), linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+#bodies::before {
+  inset: -10px 0 0 -48px;
+  background:
+    linear-gradient(var(--rule), var(--rule)) no-repeat calc(100% - var(--gutter)) 10px / 1px calc(100% - 38px),
+    linear-gradient(to left, var(--scrim) calc(100% - 48px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+}
+#topbar::before {
+  inset: 0 0 -26px 0;
+  background: linear-gradient(to bottom, var(--scrim) calc(100% - 60px), transparent);
+}
 
 /* Info: a typeset plate */
 #info {
@@ -149,6 +188,7 @@ button.small { min-height: 30px; }
   padding-top: 14px;
   border-top: 1px solid var(--rule);
   z-index: 4;
+  text-shadow: var(--halo);
 }
 .info-head { display: flex; flex-direction: column; gap: 0; }
 #info h1 { font-size: 44px; line-height: 1.05; margin: 0; font-weight: 400; letter-spacing: -0.015em; }
@@ -214,10 +254,14 @@ button.small { min-height: 30px; }
 }
 .field select option { background: var(--solid); }
 .hint { margin: 0; font-size: 14px; font-style: italic; color: var(--muted); max-width: 46ch; }
-input[type="range"] { width: 100%; accent-color: var(--accent); height: 28px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); height: 28px; background: none; appearance: none; -webkit-appearance: none; }
+input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: var(--muted); }
+input[type="range"]::-moz-range-track { height: 2px; background: var(--muted); }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -6px; border-radius: 50%; background: var(--text); border: 0; }
+input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--text); border: 0; }
 
 /* WebGL message */
-#nowebgl {
+#nowebgl, #contextlost {
   position: fixed;
   inset: 0;
   display: grid;
@@ -228,10 +272,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); height: 28px; }
   z-index: 20;
   max-width: 100%;
 }
-#nowebgl[hidden] { display: none; }
-#nowebgl h1 { margin: 0; font-size: 34px; font-weight: 400; }
-#nowebgl p, #nowebgl ul { margin: 0; max-width: 56ch; }
+#nowebgl[hidden], #contextlost[hidden] { display: none; }
+#nowebgl h1, #contextlost h1 { margin: 0; font-size: 34px; font-weight: 400; }
+#nowebgl p, #nowebgl ul, #contextlost p { margin: 0; max-width: 56ch; }
 #nowebgl ul { padding-left: 20px; }
+#contextlost button { justify-self: start; color: var(--text); border-bottom-color: var(--accent); }
 
 /* Colophon */
 dialog {
@@ -256,6 +301,7 @@ dialog a { color: var(--accent); text-underline-offset: 3px; }
 /* Phones: one tab at a time, bodies become a scrolling strip */
 @media (max-width: 720px) {
   html, body { font-size: 15px; }
+  #bodies::before { display: none; }
   #topbar { gap: 12px; padding-top: calc(env(safe-area-inset-top, 0px) + 10px); }
   .brand { font-size: 18px; }
   #dock { grid-template-columns: 1fr; gap: 6px; padding-top: 6px; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); }
@@ -281,7 +327,6 @@ dialog a { color: var(--accent); text-underline-offset: 3px; }
     flex-direction: row;
     align-items: baseline;
     background: var(--ink);
-    border-right: 0;
     border-top: 1px solid var(--line);
     padding: 2px var(--gutter);
     gap: 16px;
@@ -297,6 +342,13 @@ dialog a { color: var(--accent); text-underline-offset: 3px; }
     bottom: calc(var(--dock-h, 190px) + 44px);
     width: calc(100% - 2 * var(--gutter));
     padding-top: 8px;
+  }
+  #info::before {
+    inset: -44px calc(-1 * var(--gutter)) -6px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 44px);
+    mask-image: linear-gradient(to bottom, transparent, #000 44px);
+    -webkit-mask-composite: source-over;
+    mask-composite: add;
   }
   #info p { display: none; }
   #info h1 { font-size: 28px; }
