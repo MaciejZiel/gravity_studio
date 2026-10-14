@@ -83,7 +83,7 @@ export function describe(id: string, ms: number): InfoView {
         ["Launch", utcDate(mission.launchMs)],
         ["Path shown until", utcDate(mission.endMs)],
         ["Frame", mission.frame === "heliocentric" ? "around the Sun" : "around Earth"],
-        ["Path", "schematic, not a trajectory"],
+        ["Path", "simplified, anchored to real positions"],
       ],
     };
   }

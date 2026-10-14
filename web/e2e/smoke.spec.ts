@@ -62,3 +62,52 @@ test("no horizontal scroll at 400 px", async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("announces the selection once and keeps the changing numbers out of a live region", async ({ page }) => {
+  await ready(page);
+  await expect(page.locator("#info")).not.toHaveAttribute("aria-live", /.+/);
+  await expect(page.locator("#announce")).toHaveText("");
+  await page.locator('#bodies [data-id="Jupiter"]').click();
+  await expect(page.locator("#announce")).toHaveText("Jupiter, Planet");
+  const mutations = await page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        let n = 0;
+        const obs = new MutationObserver((list) => (n += list.length));
+        obs.observe(document.getElementById("announce")!, { childList: true, characterData: true, subtree: true });
+        setTimeout(() => resolve(n), 1200);
+      }),
+  );
+  expect(mutations).toBe(0);
+});
+
+test.describe("reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("camera jumps instantly and tours wait for Next", async ({ page }) => {
+    await ready(page);
+    await page.locator('#bodies [data-id="Jupiter"]').click();
+    await page.waitForFunction(() => window.__gravity!.frames() > 0);
+    const d0 = await page.evaluate(() => window.__gravity!.distance());
+    await page.waitForTimeout(600);
+    const d1 = await page.evaluate(() => window.__gravity!.distance());
+    expect(Math.abs(d1 - d0)).toBeLessThan(1e-6);
+    expect(d0).toBeLessThan(3);
+
+    await page.locator("#tours button").first().click();
+    const title = await page.locator("#tour-title").textContent();
+    await page.waitForTimeout(8000);
+    await expect(page.locator("#tour-title")).toHaveText(title!);
+    await page.locator("#tour-next").click();
+    await expect(page.locator("#tour-title")).not.toHaveText(title!);
+  });
+});
+
+test("without the preference the camera eases toward a new focus", async ({ page }) => {
+  await ready(page);
+  await page.locator('#bodies [data-id="Jupiter"]').click();
+  const d0 = await page.evaluate(() => window.__gravity!.distance());
+  await page.waitForTimeout(600);
+  const d1 = await page.evaluate(() => window.__gravity!.distance());
+  expect(Math.abs(d1 - d0)).toBeGreaterThan(0.05);
+});

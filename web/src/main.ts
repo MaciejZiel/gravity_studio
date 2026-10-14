@@ -7,6 +7,7 @@ import { moonsOf } from "./astro/layout";
 import { TIMELINE_END_MS, TIMELINE_START_MS } from "./astro/time";
 import { Clock, SPEEDS, dateInputValue, formatUtc } from "./clock";
 import { SolarScene } from "./render/scene";
+import { motionPreference, shouldFreezeSpin } from "./motion";
 import { TourRunner } from "./tour";
 import { describe } from "./ui/info";
 
@@ -42,7 +43,7 @@ function showNoWebgl(): void {
 
 declare global {
   interface Window {
-    __gravity?: { frames: () => number; focus: () => string; ms: () => number; live: () => boolean; mode: () => string };
+    __gravity?: { frames: () => number; focus: () => string; ms: () => number; live: () => boolean; mode: () => string; distance: () => number };
   }
 }
 
@@ -130,13 +131,23 @@ function start(): void {
   const infoKind = $("info-kind");
   const infoFact = $("info-fact");
   const infoStats = $("info-stats");
+  const announce = $("announce");
   let infoKey = "";
+  let announced = "";
+  const setText = (el: HTMLElement, text: string) => {
+    if (el.textContent !== text) el.textContent = text;
+  };
   function renderInfo(): void {
     const f = scene.getFocus();
     const view = describe(f, clock.ms);
-    infoName.textContent = view.name;
-    infoKind.textContent = view.kind;
-    infoFact.textContent = view.fact;
+    setText(infoName, view.name);
+    setText(infoKind, view.kind);
+    setText(infoFact, view.fact);
+    // Screen readers hear the name and kind once per selection, not the live numbers.
+    if (f !== announced) {
+      if (announced) announce.textContent = view.kind ? `${view.name}, ${view.kind}` : view.name;
+      announced = f;
+    }
     const key = f + view.stats.map((s) => s[0]).join();
     if (key !== infoKey) {
       infoKey = key;
@@ -326,6 +337,14 @@ function start(): void {
       scene.setDistanceMode(userTrue ? "true" : "compressed");
     },
   });
+  const motion = motionPreference();
+  const applyMotion = (reduced: boolean) => {
+    scene.setReducedMotion(reduced);
+    tours.autoAdvance = !reduced;
+    document.body.classList.toggle("reduced-motion", reduced);
+  };
+  applyMotion(motion.reduced);
+  motion.onChange(applyMotion);
   const tourBox = $("tours");
   for (const t of TOURS) {
     const b = document.createElement("button");
@@ -365,6 +384,7 @@ function start(): void {
     last = now;
     clock.tick(dt);
     tours.update(dt);
+    scene.setSpinFrozen(shouldFreezeSpin(motion.reduced, clock));
     scene.setTime(clock.ms);
     scene.update(dt);
     syncTime(false);
@@ -388,6 +408,7 @@ function start(): void {
     ms: () => clock.ms,
     live: () => clock.live,
     mode: () => scene.getDistanceMode(),
+    distance: () => scene.camera.position.distanceTo(scene.controls.target),
   };
   document.body.dataset.ready = "true";
 }
