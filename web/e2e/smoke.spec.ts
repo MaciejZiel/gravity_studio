@@ -79,6 +79,8 @@ test("announces the selection once and keeps the changing numbers out of a live 
       }),
   );
   expect(mutations).toBe(0);
+});
+
 test.describe("reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
