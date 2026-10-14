@@ -55,10 +55,11 @@ export interface SceneOptions {
   canvas: HTMLCanvasElement;
   labels: HTMLElement;
   onPick?: (id: FocusId) => void;
+  onContextLost?: () => void;
+  onContextRestored?: () => void;
 }
 
 const BASE = import.meta.env.BASE_URL;
-const TEXT_DIM = "#c9d3e0";
 
 export class SolarScene {
   readonly renderer: THREE.WebGLRenderer;
@@ -88,13 +89,16 @@ export class SolarScene {
   private spinFrozen = false;
   private readonly tmp = new THREE.Vector3();
   private readonly tmp2 = new THREE.Vector3();
+  /** Frames actually drawn. Idle frames (nothing changed) are skipped. */
   frames = 0;
+  private dirty = true;
+  private contextLost = false;
   private insets = { top: 0, bottom: 0 };
 
   constructor(private readonly opts: SceneOptions) {
     this.labelsRoot = opts.labels;
     this.renderer = new THREE.WebGLRenderer({ canvas: opts.canvas, antialias: true, powerPreference: "high-performance" });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.applyPixelRatio();
     this.renderer.setClearColor(0x03050a, 1);
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.01, 4000);
     this.camera.position.set(0, 7, 11);
@@ -105,6 +109,17 @@ export class SolarScene {
     this.controls.rotateSpeed = 0.7;
     this.controls.zoomSpeed = 0.9;
     this.controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE };
+    this.controls.addEventListener("change", () => this.invalidate());
+    opts.canvas.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault();
+      this.contextLost = true;
+      opts.onContextLost?.();
+    });
+    opts.canvas.addEventListener("webglcontextrestored", () => {
+      this.contextLost = false;
+      this.invalidate();
+      opts.onContextRestored?.();
+    });
     this.controls.addEventListener("start", () => {
       this.goalDir = null;
       this.goalDistance = null;
@@ -125,7 +140,7 @@ export class SolarScene {
   // ---- construction ----
 
   private texture(name: string): THREE.Texture {
-    const tex = new THREE.TextureLoader().load(`${BASE}textures/${name}`);
+    const tex = new THREE.TextureLoader().load(`${BASE}textures/${name}`, () => this.invalidate());
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     return tex;
@@ -142,7 +157,6 @@ export class SolarScene {
     const el = document.createElement("div");
     el.className = `body-label ${cls}`.trim();
     el.textContent = text;
-    el.style.color = TEXT_DIM;
     this.labelsRoot.appendChild(el);
     return el;
   }
@@ -326,7 +340,19 @@ export class SolarScene {
 
   // ---- state setters ----
 
+  /** Ask for a redraw on the next update. */
+  invalidate(): void {
+    this.dirty = true;
+  }
+
+  /** Full resolution on desktop, at most 1.5x on narrow screens where the extra pixels cost more than they show. */
+  private applyPixelRatio(): void {
+    const cap = window.innerWidth <= 720 ? 1.5 : 2;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
+  }
+
   setTime(ms: number): void {
+    if (ms !== this.ms) this.dirty = true;
     this.ms = ms;
     if (!(Math.abs(ms - this.orbitsBuiltFor) < 20 * 365.25 * 86_400_000)) this.rebuildOrbits();
     for (const p of this.planets) {
@@ -371,18 +397,21 @@ export class SolarScene {
   setReducedMotion(on: boolean): void {
     this.reducedMotion = on;
     this.controls.enableDamping = !on;
+    this.invalidate();
   }
 
   /** Stop planets and the Sun from spinning with the simulated clock (it would strobe at high speeds). */
   setSpinFrozen(frozen: boolean): void {
     if (frozen === this.spinFrozen) return;
     this.spinFrozen = frozen;
+    this.invalidate();
     this.setTime(this.ms);
   }
 
   setDistanceMode(mode: DistanceMode): void {
     if (mode === this.mode) return;
     this.mode = mode;
+    this.invalidate();
     this.rebuildOrbits();
     this.rebuildMissions();
     this.setTime(this.ms);
@@ -394,6 +423,7 @@ export class SolarScene {
   }
 
   setVisibility(v: { orbits?: boolean; labels?: boolean; missions?: boolean }): void {
+    this.invalidate();
     if (v.orbits !== undefined) this.showOrbits = v.orbits;
     if (v.labels !== undefined) this.showLabels = v.labels;
     if (v.missions !== undefined) this.showMissions = v.missions;
@@ -438,6 +468,7 @@ export class SolarScene {
     if (!r) return;
     this.focusId = id;
     this.focusRadius = r.radius;
+    this.invalidate();
     const isBody = id !== "Sun" && !id.startsWith("mission:");
     const portrait = this.camera.aspect < 0.8 ? 1.45 : 1;
     const distance = (o.distance ?? (id === "Sun" ? this.overviewDistance() : id.startsWith("mission:") ? this.missionDistance() : Math.max(r.radius * 6, 0.12))) * (o.distance === undefined && isBody ? portrait : 1);
@@ -529,7 +560,9 @@ export class SolarScene {
     const c = this.opts.canvas;
     const w = Math.max(1, c.clientWidth);
     const h = Math.max(1, c.clientHeight);
+    this.applyPixelRatio();
     this.renderer.setSize(w, h, false);
+    this.invalidate();
     this.camera.aspect = w / h;
     // Keep the horizontal field of view usable on narrow portrait screens.
     this.camera.fov = w / h < 0.8 ? 58 : 45;
@@ -540,6 +573,7 @@ export class SolarScene {
   setInsets(top: number, bottom: number): void {
     if (top === this.insets.top && bottom === this.insets.bottom) return;
     this.insets = { top, bottom };
+    this.invalidate();
     this.applyInsets();
   }
 
@@ -586,7 +620,10 @@ export class SolarScene {
       }
       if (this.transitioning && delta.length() < Math.max(1e-4, r.radius * 0.02) && this.goalDistance === null && this.goalDir === null) this.transitioning = false;
     }
+    if (this.transitioning || this.goalDistance !== null || this.goalDir !== null) this.dirty = true;
     this.controls.update();
+    if (this.contextLost || !this.dirty) return;
+    this.dirty = false;
     const dist = this.camera.position.distanceTo(this.controls.target);
     this.camera.near = Math.max(0.0008, Math.min(0.5, dist * 0.02, this.focusRadius * 0.4));
     this.camera.far = 4000;

@@ -7,6 +7,7 @@
     <meta name="description" content="Gravity Studio for the browser: the Solar System driven by real orbital elements, from 1960 to 2165." />
     <title>Gravity Studio</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" href="/fonts/newsreader-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <canvas id="view" tabindex="0" aria-label="Solar System. Drag to rotate, scroll or pinch to zoom."></canvas>
@@ -14,7 +15,6 @@
 
     <header id="topbar">
       <div class="brand">
-        <img src="/favicon.svg" alt="" width="26" height="26" />
         <span>Gravity Studio</span>
       </div>
       <div class="clockbox" aria-live="off">
@@ -52,12 +52,12 @@
 
     <footer id="dock">
       <div class="tabs" role="tablist" aria-label="Controls">
-        <button role="tab" aria-selected="true" data-tab="time" type="button">Time</button>
-        <button role="tab" aria-selected="false" data-tab="view" type="button">View</button>
-        <button role="tab" aria-selected="false" data-tab="tours" type="button">Tours</button>
+        <button role="tab" id="tab-time" aria-controls="panel-time" aria-selected="true" data-tab="time" type="button">Time</button>
+        <button role="tab" id="tab-view" aria-controls="panel-view" aria-selected="false" data-tab="view" type="button">View</button>
+        <button role="tab" id="tab-tours" aria-controls="panel-tours" aria-selected="false" data-tab="tours" type="button">Tours</button>
       </div>
 
-      <section class="group" data-group="time" aria-label="Time">
+      <section class="group" id="panel-time" data-group="time" aria-label="Time">
         <div class="row">
           <button id="live" class="primary" type="button" aria-pressed="true">Live</button>
           <button id="reverse" class="ghost" type="button" aria-label="Play backwards" aria-pressed="false">
@@ -81,7 +81,7 @@
         </div>
       </section>
 
-      <section class="group" data-group="view" aria-label="View">
+      <section class="group" id="panel-view" data-group="view" aria-label="View">
         <div class="row wrap">
           <button id="zoom-out" class="ghost" type="button" aria-label="Zoom out">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 11h14v2H5z" fill="currentColor"/></svg>
@@ -100,7 +100,7 @@
         <p class="hint">Sizes are enlarged and distances compressed so every body stays visible. True distances switches distances to linear au.</p>
       </section>
 
-      <section class="group" data-group="tours" aria-label="Tours and missions">
+      <section class="group" id="panel-tours" data-group="tours" aria-label="Tours and missions">
         <div id="tours" class="row wrap"></div>
         <div id="missions" class="row wrap"></div>
       </section>
@@ -117,6 +117,12 @@
       <p class="muted">The desktop version of Gravity Studio does not need WebGL.</p>
     </section>
 
+    <section id="contextlost" hidden role="alert">
+      <h1>The graphics context was lost</h1>
+      <p>The browser took the graphics device away, which can happen when the GPU driver resets or the tab was in the background for a long time. The view resumes by itself if the device comes back.</p>
+      <button type="button" id="reload" class="ghost">Reload the page</button>
+    </section>
+
     <dialog id="credits" aria-labelledby="credits-title">
       <form method="dialog">
         <h2 id="credits-title">Credits</h2>
@@ -124,7 +130,7 @@
         <p>Planet positions use the approximate Keplerian elements of E. M. Standish and J. G. Williams, published by the <a href="https://ssd.jpl.nasa.gov/planets/approx_pos.html" target="_blank" rel="noreferrer noopener">JPL Solar System Dynamics group</a>.</p>
         <p>The Sun and moon surfaces are generated procedurally in your browser. 3D rendering by <a href="https://threejs.org/" target="_blank" rel="noreferrer noopener">three.js</a> (MIT).</p>
         <p class="muted">Moons other than Earth's Moon use circular orbits with arbitrary starting phases. Mission paths are simplified curves through waypoints placed at the real positions of the bodies they met.</p>
-        <button class="primary" value="close">Close</button>
+        <button class="ghost" value="close">Close</button>
       </form>
     </dialog>
 

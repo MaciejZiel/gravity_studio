@@ -9,7 +9,10 @@ A Solar System viewer that runs in the browser, built with Vite, TypeScript and 
 - Focus and zoom on any body from the list, with the keyboard (1-8, S, +, -, 0) or by dragging and scrolling.
 - Time controls: live 1:1 clock, pause, reverse, speeds from 1 min/s to 1000 d/s, a timeline for 1960-2165, a date field and bookmarked moments.
 - Mission paths for Parker Solar Probe, JWST, Voyager 1, Cassini and Apollo 11, and guided tours.
-- Works down to 400 px wide; a message is shown when WebGL is not available.
+- Works down to 400 px wide; a message is shown when WebGL is not available, and a reload prompt appears if the browser drops the WebGL context (the view resumes by itself if the context returns).
+- Styled as an editorial star atlas: a serif plate for the focused body, dotted-leader figures, a text index of bodies and plain text controls. Text that sits over the 3D view has a dark scrim and halo so orbit lines and bright planets do not cut through it.
+- The scene is drawn only when something changed (time running, camera moving, a control used); a paused, idle view costs no GPU frames. The pixel ratio is capped at 1.5 on screens 720 px wide or narrower and at 2 elsewhere.
+- Keyboard: global shortcuts are ignored while the Credits dialog is open; the Time / View / Tours tabs on phones follow the tab pattern (arrow keys, Home, End, `aria-controls`).
 
 ## Accuracy
 
@@ -28,7 +31,19 @@ npm run build      # type check and static build into web/dist
 npm run test:e2e   # Playwright smoke tests (needs: npx playwright install chromium)
 ```
 
-`web/dist` is a static site with relative paths and can be served from any directory.
+The e2e run starts `vite preview` on port 4179 (or reuses whatever already listens there); set `PW_PORT` to use another port, for example `PW_PORT=4190 npm run test:e2e`.
+
+## Deploying
+
+`web/dist` is a static site: `base` is `./`, so every URL in the built page (script, stylesheet, fonts, textures, favicon) is relative. It works at the root of a subdomain or in any directory, needs no rewrite rules (there is one `index.html` and no client-side routes) and no server code.
+
+It also runs under a strict Content-Security-Policy. This policy was checked against the built site served from `/`, with the Earth, View-tab, Credits and tour paths exercised and no violation reported:
+
+```
+default-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'
+```
+
+There is no inline script, no inline `<style>` and no `style=""` attribute in the HTML; all styling set from script goes through the CSSOM, which `style-src 'self'` allows. Textures are loaded from `textures/` as images from the same origin.
 
 ## Credits
 
