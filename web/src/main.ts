@@ -51,10 +51,23 @@ function start(): void {
   setupCredits();
   if (!webglAvailable()) return showNoWebgl();
 
+  $("reload").addEventListener("click", () => location.reload());
   const canvas = $<HTMLCanvasElement>("view");
   let scene: SolarScene;
   try {
-    scene = new SolarScene({ canvas, labels: $("labels"), onPick: (id) => focusBody(id) });
+    scene = new SolarScene({
+      canvas,
+      labels: $("labels"),
+      onPick: (id) => focusBody(id),
+      onContextLost: () => {
+        document.body.classList.add("context-lost");
+        $("contextlost").hidden = false;
+      },
+      onContextRestored: () => {
+        document.body.classList.remove("context-lost");
+        $("contextlost").hidden = true;
+      },
+    });
   } catch (err) {
     console.error(err);
     return showNoWebgl();
@@ -87,11 +100,24 @@ function start(): void {
   const tabs = Array.from(dock.querySelectorAll<HTMLButtonElement>(".tabs button"));
   const groups = Array.from(dock.querySelectorAll<HTMLElement>(".group"));
   const selectTab = (name: string) => {
-    for (const t of tabs) t.setAttribute("aria-selected", String(t.dataset.tab === name));
+    for (const t of tabs) {
+      t.setAttribute("aria-selected", String(t.dataset.tab === name));
+      t.tabIndex = t.dataset.tab === name ? 0 : -1;
+    }
     for (const g of groups) g.classList.toggle("active", g.dataset.group === name);
     syncDock();
   };
-  for (const t of tabs) t.addEventListener("click", () => selectTab(t.dataset.tab!));
+  for (const t of tabs) {
+    t.addEventListener("click", () => selectTab(t.dataset.tab!));
+    t.addEventListener("keydown", (e) => {
+      const i = tabs.indexOf(t);
+      const next = e.key === "ArrowRight" ? (i + 1) % tabs.length : e.key === "ArrowLeft" ? (i + tabs.length - 1) % tabs.length : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
+      if (next < 0) return;
+      e.preventDefault();
+      selectTab(tabs[next]!.dataset.tab!);
+      tabs[next]!.focus();
+    });
+  }
   selectTab("time");
 
   // ---- bodies list ----
@@ -359,7 +385,9 @@ function start(): void {
   $("tour-prev").addEventListener("click", () => tours.prev());
 
   // ---- keyboard ----
+  const credits = $<HTMLDialogElement>("credits");
   window.addEventListener("keydown", (e) => {
+    if (credits.open) return; // the dialog owns the keyboard, including Escape
     const tag = (e.target as HTMLElement).tagName;
     if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === "+" || e.key === "=") scene.zoomBy(0.6);
