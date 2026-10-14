@@ -1,6 +1,6 @@
 # Gravity Studio
 
-A desktop viewer for the Solar System, written in Python with Pygame. It draws the Sun and the eight planets on elliptical orbits, lets you step through time between 1960 and 2165, and opens a textured, rotating close-up when you click a planet.
+A desktop viewer for the Solar System, written in Python with Pygame, with a browser version built on Three.js. It draws the Sun and the eight planets on elliptical orbits, lets you step through time between 1960 and 2165, and opens a textured, rotating close-up when you click a planet.
 
 ![The full system view with mission trajectories and the Earth sky strip](docs/screenshot-system.png)
 
@@ -9,6 +9,8 @@ A desktop viewer for the Solar System, written in Python with Pygame. It draws t
 | ![Earth with the Moon and the Apollo 11 trajectory](docs/screenshot-earth.png) | ![Saturn with its rings and Titan](docs/screenshot-saturn.png) |
 
 The screenshots were rendered headless (SDL dummy driver) at 1600x900, so they are what the app draws, not mock-ups.
+
+The browser version runs live at [gravity.maciejzielinski.dev](https://gravity.maciejzielinski.dev), served from a home server. It is described in [web/README.md](web/README.md).
 
 ## What it does
 
@@ -88,7 +90,7 @@ There are 163 tests. They cover the orbit math, time and date jumps, the scale m
 | `assets/planets/` | Planet maps and the Saturn ring mask |
 | `tests/` | pytest suite |
 
-`web/` holds a separate browser version and is not described here.
+`web/` holds the browser version (Vite, TypeScript, Three.js); see [web/README.md](web/README.md).
 
 ## License
 
