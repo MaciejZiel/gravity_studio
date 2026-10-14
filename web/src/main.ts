@@ -130,13 +130,23 @@ function start(): void {
   const infoKind = $("info-kind");
   const infoFact = $("info-fact");
   const infoStats = $("info-stats");
+  const announce = $("announce");
   let infoKey = "";
+  let announced = "";
+  const setText = (el: HTMLElement, text: string) => {
+    if (el.textContent !== text) el.textContent = text;
+  };
   function renderInfo(): void {
     const f = scene.getFocus();
     const view = describe(f, clock.ms);
-    infoName.textContent = view.name;
-    infoKind.textContent = view.kind;
-    infoFact.textContent = view.fact;
+    setText(infoName, view.name);
+    setText(infoKind, view.kind);
+    setText(infoFact, view.fact);
+    // Screen readers hear the name and kind once per selection, not the live numbers.
+    if (f !== announced) {
+      if (announced) announce.textContent = view.kind ? `${view.name}, ${view.kind}` : view.name;
+      announced = f;
+    }
     const key = f + view.stats.map((s) => s[0]).join();
     if (key !== infoKey) {
       infoKey = key;
