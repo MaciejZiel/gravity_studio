@@ -288,6 +288,7 @@ dialog a { color: #9ccaff; }
 
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
+  .tour-progress { display: none; }
 }
 
 body.no-gl #dock, body.no-gl #bodies, body.no-gl #info, body.no-gl #tourbar, body.no-gl .clockbox, body.no-gl #labels { display: none; }

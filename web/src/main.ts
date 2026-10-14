@@ -7,6 +7,7 @@ import { moonsOf } from "./astro/layout";
 import { TIMELINE_END_MS, TIMELINE_START_MS } from "./astro/time";
 import { Clock, SPEEDS, dateInputValue, formatUtc } from "./clock";
 import { SolarScene } from "./render/scene";
+import { motionPreference, shouldFreezeSpin } from "./motion";
 import { TourRunner } from "./tour";
 import { describe } from "./ui/info";
 
@@ -42,7 +43,7 @@ function showNoWebgl(): void {
 
 declare global {
   interface Window {
-    __gravity?: { frames: () => number; focus: () => string; ms: () => number; live: () => boolean; mode: () => string };
+    __gravity?: { frames: () => number; focus: () => string; ms: () => number; live: () => boolean; mode: () => string; distance: () => number };
   }
 }
 
@@ -336,6 +337,14 @@ function start(): void {
       scene.setDistanceMode(userTrue ? "true" : "compressed");
     },
   });
+  const motion = motionPreference();
+  const applyMotion = (reduced: boolean) => {
+    scene.setReducedMotion(reduced);
+    tours.autoAdvance = !reduced;
+    document.body.classList.toggle("reduced-motion", reduced);
+  };
+  applyMotion(motion.reduced);
+  motion.onChange(applyMotion);
   const tourBox = $("tours");
   for (const t of TOURS) {
     const b = document.createElement("button");
@@ -375,6 +384,7 @@ function start(): void {
     last = now;
     clock.tick(dt);
     tours.update(dt);
+    scene.setSpinFrozen(shouldFreezeSpin(motion.reduced, clock));
     scene.setTime(clock.ms);
     scene.update(dt);
     syncTime(false);
@@ -398,6 +408,7 @@ function start(): void {
     ms: () => clock.ms,
     live: () => clock.live,
     mode: () => scene.getDistanceMode(),
+    distance: () => scene.camera.position.distanceTo(scene.controls.target),
   };
   document.body.dataset.ready = "true";
 }
